@@ -7,6 +7,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const HANDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const CARD_RANK = { '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14 };
+const SUIT_ORDER = { '♠': 0, '♥': 1, '♣': 2, '♦': 3 }; // Alternating colors (Black, Red, Black, Red)
 
 let seatedPlayers = [];
 let bids = {}; 
@@ -18,7 +19,7 @@ let lastTrick = null;
 let currentHandIndex = 0;
 let turnIndex = 0; 
 let trumpCard = null;
-let isHandInProgress = false; // Guard to prevent double dealing
+let isHandInProgress = false;
 
 const players = [
     { name: "Rodolfo D'Onofrio", nickname: "Bucéfalo", gender: "M" },
@@ -73,6 +74,10 @@ io.on('connection', (socket) => {
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
     });
 
+    socket.on('chat-msg', (data) => {
+        io.emit('chat-msg', { nick: data.nick, msg: data.msg });
+    });
+
     socket.on('start-game', () => {
         if (seatedPlayers.length < 5 || isHandInProgress) return;
         isHandInProgress = true;
@@ -80,16 +85,25 @@ io.on('connection', (socket) => {
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
         const dealerIdx = currentHandIndex % 5;
         turnIndex = (dealerIdx + 1) % 5; 
-        const suits = ['♥', '♦', '♣', '♠'];
+        
+        const suits = ['♠', '♥', '♣', '♦'];
         const vals = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
         let deck = [];
         suits.forEach(s => vals.forEach(v => deck.push({s, v})));
         deck.sort(() => Math.random() - 0.5);
+
         const cardCount = HANDS[currentHandIndex];
-        seatedPlayers.forEach(p => p.hand = deck.splice(0, cardCount));
+        seatedPlayers.forEach(p => {
+            let hand = deck.splice(0, cardCount);
+            // SORTING LOGIC: By suit order, then by rank ascending
+            hand.sort((a, b) => {
+                if (SUIT_ORDER[a.s] !== SUIT_ORDER[b.s]) return SUIT_ORDER[a.s] - SUIT_ORDER[b.s];
+                return CARD_RANK[a.v] - CARD_RANK[b.v];
+            });
+            p.hand = hand;
+        });
         trumpCard = deck.pop();
-        let label = (currentHandIndex >= 10 && currentHandIndex <= 12) ? "sin triunfo" : (currentHandIndex > 12 ? "bajando" : "subiendo");
-        io.emit('game-started', { handNumber: cardCount, handLabel: label, players: seatedPlayers, trump: trumpCard, dealer: seatedPlayers[dealerIdx].nickname, nextPlayer: seatedPlayers[turnIndex].nickname, scores });
+        io.emit('game-started', { handNumber: cardCount, players: seatedPlayers, trump: trumpCard, dealer: seatedPlayers[dealerIdx].nickname, nextPlayer: seatedPlayers[turnIndex].nickname });
     });
 
     socket.on('submit-bid', (data) => {
@@ -109,13 +123,6 @@ io.on('connection', (socket) => {
     socket.on('play-card', (data) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
-        if (cardsOnTable.length > 0) {
-            const leadingSuit = cardsOnTable[0].card.s;
-            if (data.card.s !== leadingSuit && p.hand.some(c => c.s === leadingSuit)) {
-                socket.emit('error-msg', "Carta no autorizada. No podes renunciar.");
-                return;
-            }
-        }
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
         turnIndex = (turnIndex + 1) % 5;
@@ -141,7 +148,7 @@ io.on('connection', (socket) => {
 });
 
 function calculateScores() {
-    isHandInProgress = false; // Reset lock
+    isHandInProgress = false;
     let handRecord = { handNum: currentHandIndex + 1, cardCount: HANDS[currentHandIndex], results: {} };
     seatedPlayers.forEach(p => {
         const bid = bids[p.nickname], won = tricksWon[p.nickname];
@@ -152,8 +159,7 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
-    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord, isHandInProgress });
+    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log(`Liga D'Onofrio Online Ready`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Engine Live`));

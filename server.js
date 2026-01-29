@@ -18,6 +18,7 @@ let lastTrick = null;
 let currentHandIndex = 0;
 let turnIndex = 0; 
 let trumpCard = null;
+let isHandInProgress = false; // Guard to prevent double dealing
 
 const players = [
     { name: "Rodolfo D'Onofrio", nickname: "Bucéfalo", gender: "M" },
@@ -59,7 +60,7 @@ app.use(express.static(__dirname));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 io.on('connection', (socket) => {
-    socket.emit('init-lobby', { players, seatedPlayers, scores, history, currentHandIndex });
+    socket.emit('init-lobby', { players, seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
 
     socket.on('select-player', (nickname) => {
         if (seatedPlayers.length >= 5 || seatedPlayers.find(p => p.nickname === nickname)) return;
@@ -69,11 +70,12 @@ io.on('connection', (socket) => {
             seatedPlayers = seatedPlayers.sort(() => Math.random() - 0.5);
             seatedPlayers.forEach((p, idx) => { p.seatIndex = idx; scores[p.nickname] = { points: 0, fallas: 0 }; });
         }
-        io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex });
+        io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
     });
 
     socket.on('start-game', () => {
-        if (seatedPlayers.length < 5) return;
+        if (seatedPlayers.length < 5 || isHandInProgress) return;
+        isHandInProgress = true;
         bids = {}; tricksWon = {}; cardsOnTable = []; lastTrick = null;
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
         const dealerIdx = currentHandIndex % 5;
@@ -131,9 +133,15 @@ io.on('connection', (socket) => {
             }, 2500);
         }
     });
+
+    socket.on('disconnect', () => {
+        seatedPlayers = seatedPlayers.filter(p => p.id !== socket.id);
+        io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
+    });
 });
 
 function calculateScores() {
+    isHandInProgress = false; // Reset lock
     let handRecord = { handNum: currentHandIndex + 1, cardCount: HANDS[currentHandIndex], results: {} };
     seatedPlayers.forEach(p => {
         const bid = bids[p.nickname], won = tricksWon[p.nickname];
@@ -145,7 +153,7 @@ function calculateScores() {
     history.push(handRecord);
     currentHandIndex++;
     if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
-    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
+    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord, isHandInProgress });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log(`Liga D'Onofrio Online`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Liga D'Onofrio Online Ready`));

@@ -44,7 +44,6 @@ io.on('connection', (socket) => {
         isHandInProgress = true;
         bids = {}; tricksWon = {}; cardsOnTable = []; lastTrick = null;
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
-        
         const dealerIdx = currentHandIndex % 5;
         turnIndex = (dealerIdx + 1) % 5; 
         
@@ -86,7 +85,7 @@ io.on('connection', (socket) => {
     socket.on('play-card', (data) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
-
+        
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
         turnIndex = (turnIndex + 1) % 5;
@@ -97,25 +96,21 @@ io.on('connection', (socket) => {
             const winner = determineWinner(cardsOnTable, trumpCard, currentHandIndex);
             tricksWon[winner.nickname]++;
             lastTrick = [...cardsOnTable];
-            
             const winnerObj = seatedPlayers.find(sp => sp.nickname === winner.nickname);
-            turnIndex = winnerObj.seatIndex; // Pass turn to winner
+            turnIndex = winnerObj.seatIndex;
 
             setTimeout(() => {
                 cardsOnTable = [];
-                io.emit('clear-felt', { winner: winner.nickname, nextPlayer: seatedPlayers[turnIndex].nickname, tricksWon, lastTrick });
-                
-                // CHECK IF HAND ENDED
                 const totalPlayed = Object.values(tricksWon).reduce((a, b) => a + b, 0);
-                if (totalPlayed === HANDS[currentHandIndex]) {
-                    calculateScores();
-                }
+                const handFinished = (totalPlayed === HANDS[currentHandIndex]);
+                
+                io.emit('clear-felt', { winner: winner.nickname, nextPlayer: winner.nickname, tricksWon, lastTrick, handFinished });
+                
+                if (handFinished) calculateScores();
             }, 2500);
         }
     });
 
-    socket.on('chat-msg', (data) => io.emit('chat-msg', data));
-    
     socket.on('disconnect', () => {
         seatedPlayers = seatedPlayers.filter(p => p.id !== socket.id);
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
@@ -138,6 +133,7 @@ function determineWinner(cards, trump, handIdx) {
 }
 
 function calculateScores() {
+    isHandInProgress = false;
     let handRecord = { handNum: currentHandIndex + 1, cardCount: HANDS[currentHandIndex], results: {} };
     seatedPlayers.forEach(p => {
         const bid = bids[p.nickname], won = tricksWon[p.nickname];
@@ -148,9 +144,7 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    isHandInProgress = false; // Reset lock ONLY after all calculations are done
-    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
+    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord, fallas: seatedPlayers.map(p => ({nick: p.nickname, count: scores[p.nickname].fallas})) });
 }
 
 http.listen(PORT, '0.0.0.0', () => console.log("Liga D'Onofrio Online Ready"));
-

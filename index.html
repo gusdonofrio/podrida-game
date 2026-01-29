@@ -8,7 +8,6 @@
         :root { --felt-green: #076324; --gold: #f1c40f; --dealer-orange: #e67e22; }
         body { display: flex; background: #1a1a1a; color: white; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; flex-direction: column; }
         
-        /* Layout scaling for Mobile */
         #board { width: 100%; height: 25vh; background: #222; border-bottom: 2px solid #444; padding: 10px; display: flex; flex-direction: row; overflow-x: auto; box-sizing: border-box; }
         @media (min-width: 768px) {
             body { flex-direction: row; }
@@ -27,7 +26,6 @@
         .active-turn { border-color: #2ecc71 !important; box-shadow: 0 0 15px #2ecc71; transform: scale(1.1); }
         .dealer-badge { position: absolute; top: -8px; right: -8px; background: var(--dealer-orange); color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border: 2px solid white; font-weight: bold; }
         
-        /* Positions for 5 players */
         .pos-0 { bottom: -30px; left: 50%; transform: translateX(-50%); }
         .pos-1 { right: -30px; top: 55%; transform: translateY(-50%); }
         .pos-2 { top: -30px; right: 20%; }
@@ -38,7 +36,6 @@
         .played-card { position: absolute; z-index: 10; transform: translate(-50%, -50%); animation: bounceIn 0.4s ease-out; }
         @keyframes bounceIn { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 
-        /* Modals */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #444; padding: 6px; text-align: center; font-size: 0.8rem; }
@@ -52,8 +49,7 @@
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
         .aux-btn { background: #3498db; color: white; font-size: 0.7rem; }
         
-        /* Summary Overlay */
-        #summary-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 20px; border: 3px solid var(--gold); border-radius: 15px; z-index: 50; width: 80%; max-width: 300px; text-align: center; }
+        #summary-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 20px; border: 3px solid var(--gold); border-radius: 15px; z-index: 200; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -80,9 +76,9 @@
 
     <div id="table-container">
         <div id="summary-overlay">
-            <h2 id="sum-title" style="color:var(--gold); margin-top:0;">Mano Finalizada</h2>
-            <div id="sum-content" style="font-size:0.9rem; text-align:left; margin-bottom:15px;"></div>
-            <button onclick="this.parentElement.style.display='none'" style="background:var(--dealer-orange); color:white;">Entendido</button>
+            <h2 id="sum-title" style="color:var(--gold); margin-top:0; font-size:1.2rem;">Mano Finalizada</h2>
+            <div id="sum-content" style="font-size:0.85rem; text-align:left; margin-bottom:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;"></div>
+            <button id="close-summary-btn" style="background:var(--dealer-orange); color:white;">Entendido (10s)</button>
         </div>
 
         <div id="banter-box" style="position: absolute; top: 15px; color:var(--gold); font-weight:bold; z-index:30;">Bienvenidos</div>
@@ -118,21 +114,31 @@
         
         let localSeated = [], globalBids = {}, globalTricksWon = {}, currentHistory = [];
         let isMyTurn = false, currentHandIndex = 0, lastDealer = "", lastTrickData = null;
-        let selectedCard = null, currentMode = "idle";
+        let selectedCard = null, currentMode = "idle", summaryTimer = null;
+        let isGlobalHandInProgress = false;
 
         socket.on('init-lobby', (data) => {
             select.innerHTML = '<option value="">-- Quién sos? --</option>';
             data.players.forEach(p => select.innerHTML += `<option value="${p.nickname}">${p.nickname}</option>`);
+            isGlobalHandInProgress = data.isHandInProgress;
             updateUI(data.seatedPlayers, data.scores, data.history);
         });
 
-        socket.on('update-table', (data) => { currentHandIndex = data.currentHandIndex; updateUI(data.seatedPlayers, data.scores, data.history); });
+        socket.on('update-table', (data) => { 
+            currentHandIndex = data.currentHandIndex; 
+            isGlobalHandInProgress = data.isHandInProgress;
+            updateUI(data.seatedPlayers, data.scores, data.history); 
+        });
 
         function updateUI(list, scores, history, nextPlayer = "") {
             localSeated = list; currentHistory = history;
             const myNick = select.value, me = list.find(p=>p.nickname===myNick);
             
-            document.getElementById('start-btn').style.display = (list.length === 5 && !isMyTurn) ? 'block' : 'none';
+            // LOGIC: Show button ONLY if 5 players are seated, hand NOT in progress, AND I am the dealer
+            const currentDealerNick = list.length === 5 ? list[currentHandIndex % 5].nickname : "";
+            const isMeTheDealer = myNick === currentDealerNick;
+            
+            document.getElementById('start-btn').style.display = (list.length === 5 && !isGlobalHandInProgress && isMeTheDealer) ? 'block' : 'none';
             document.getElementById('start-btn').innerText = `MANO ${currentHandIndex + 1}: REPARTIR`;
             
             if (scores && Object.keys(scores).length > 0) {
@@ -159,9 +165,11 @@
 
         socket.on('game-started', (data) => {
             lastDealer = data.dealer; globalBids = {}; globalTricksWon = {}; lastTrickData = null; selectedCard = null;
+            isGlobalHandInProgress = true;
+            if(summaryTimer) { clearInterval(summaryTimer); document.getElementById('summary-overlay').style.display = 'none'; }
+            
             document.getElementById('game-info').style.display = 'block';
             document.getElementById('view-prev-btn').style.display = 'none';
-            document.getElementById('summary-overlay').style.display = 'none';
             document.getElementById('hand-title').innerText = `${data.handNumber} ${data.handLabel}`;
             document.getElementById('dealer-name').innerText = `Repartidor: ${data.dealer}`;
             document.querySelectorAll('.played-card').forEach(c => c.remove());
@@ -240,18 +248,43 @@
 
         socket.on('hand-finished', (data) => { 
             currentHandIndex = data.currentHandIndex; 
+            isGlobalHandInProgress = false;
             updateUI(localSeated, data.scores, data.history);
             
             const overlay = document.getElementById('summary-overlay');
             const content = document.getElementById('sum-content');
-            let html = `<ul style="padding-left:15px;">`;
+            const btn = document.getElementById('close-summary-btn');
+            
+            let html = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-weight:bold; border-bottom:1px solid #555; padding-bottom:5px; margin-bottom:5px;"><span>Jugador</span><span>Puntos</span></div>`;
             Object.entries(data.lastHandResult.results).forEach(([nick, res]) => {
-                html += `<li><b>${nick}:</b> ${res.won}/${res.bid} (${res.pts > 0 ? '+'+res.pts : res.pts} pts)</li>`;
+                html += `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; padding:2px 0;">
+                            <span>${nick} (${res.won}/${res.bid})</span>
+                            <span style="color:${res.pts > 0 ? '#2ecc71' : '#e74c3c'}">${res.pts > 0 ? '+'+res.pts : res.pts}</span>
+                         </div>`;
             });
-            content.innerHTML = html + `</ul>`;
+            content.innerHTML = html;
             overlay.style.display = 'block';
-            document.getElementById('hand-container').innerHTML = '';
+            
+            let timeLeft = 10;
+            btn.innerText = `Entendido (${timeLeft}s)`;
+            if(summaryTimer) clearInterval(summaryTimer);
+            summaryTimer = setInterval(() => {
+                timeLeft--;
+                if(timeLeft <= 0) {
+                    clearInterval(summaryTimer);
+                    overlay.style.display = 'none';
+                    updateUI(localSeated, data.scores, data.history); // Refresh to show button for next dealer
+                } else {
+                    btn.innerText = `Entendido (${timeLeft}s)`;
+                }
+            }, 1000);
         });
+
+        document.getElementById('close-summary-btn').onclick = () => {
+            clearInterval(summaryTimer);
+            document.getElementById('summary-overlay').style.display = 'none';
+            updateUI(localSeated, {}, currentHistory); // Refresh to show button for next dealer
+        };
 
         socket.on('error-msg', (msg) => { alert(msg); document.getElementById('play-confirm').style.display = 'none'; });
         socket.on('tournament-complete', (data) => alert("🎉 ¡Torneo Finalizado! Ganador: " + Object.entries(data.scores).sort((a,b)=>b[1].points-a[1].points)[0][0]));

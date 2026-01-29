@@ -107,7 +107,6 @@ io.on('connection', (socket) => {
     socket.on('play-card', (data) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
-
         if (cardsOnTable.length > 0) {
             const leadingSuit = cardsOnTable[0].card.s;
             if (data.card.s !== leadingSuit && p.hand.some(c => c.s === leadingSuit)) {
@@ -115,11 +114,9 @@ io.on('connection', (socket) => {
                 return;
             }
         }
-
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
         turnIndex = (turnIndex + 1) % 5;
-
         io.emit('card-played', { playedCard: data.card, playerNickname: p.nickname, playerSeat: p.seatIndex, nextPlayer: seatedPlayers[turnIndex].nickname, totalOnTable: cardsOnTable.length });
 
         if (cardsOnTable.length === 5) {
@@ -143,12 +140,12 @@ function calculateScores() {
         let ptsGained = (bid === won) ? (10 + (won * 5)) : (1 * won);
         if (bid !== won) scores[p.nickname].fallas++;
         scores[p.nickname].points += ptsGained;
-        handRecord.results[p.nickname] = { pts: ptsGained, total: scores[p.nickname].points, falla: (bid !== won) };
+        handRecord.results[p.nickname] = { pts: ptsGained, total: scores[p.nickname].points, bid: bid, won: won, falla: (bid !== won) };
     });
     history.push(handRecord);
     currentHandIndex++;
     if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
-    else io.emit('hand-finished', { scores, history, currentHandIndex });
+    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log(`Server Ready`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Liga D'Onofrio Online`));

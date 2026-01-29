@@ -2,79 +2,123 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Podrida D'Onofrio League</title>
     <style>
-        body { display: flex; background: #1a1a1a; color: white; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        #board { width: 280px; background: #222; border-right: 2px solid #444; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; }
-        .section-title { font-size: 0.8rem; text-transform: uppercase; color: #888; margin-top: 15px; border-bottom: 1px solid #444; padding-bottom: 5px; }
-        #game-info { background: #333; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #e67e22; }
-        .score-row { display: flex; justify-content: space-between; padding: 8px; background: #2a2a2a; margin-top: 4px; border-radius: 4px; font-size: 0.9rem; }
-        .score-points { color: #2ecc71; font-weight: bold; }
-        #table-container { flex-grow: 1; background: #076324; position: relative; display: flex; align-items: center; justify-content: center; }
-        #felt { width: 85%; height: 65%; background: radial-gradient(#0a8a35, #054d1d); border: 12px solid #3d2b1f; border-radius: 50%; position: relative; }
-        .player-spot { position: absolute; width: 85px; height: 85px; background: rgba(0,0,0,0.85); border: 3px solid #f1c40f; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: 0.3s; z-index: 5; }
-        .active-turn { border-color: #2ecc71 !important; box-shadow: 0 0 20px #2ecc71; transform: scale(1.05); }
-        .dealer-badge { position: absolute; top: -10px; right: -10px; background: #e67e22; color: white; border-radius: 50%; width: 25px; height: 25px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; border: 2px solid white; font-weight: bold; }
+        :root { --felt-green: #076324; --gold: #f1c40f; --dealer-orange: #e67e22; }
+        body { display: flex; background: #1a1a1a; color: white; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; flex-direction: column; }
         
-        .pos-0 { bottom: -40px; left: 50%; transform: translateX(-50%); }
-        .pos-1 { right: -40px; top: 55%; transform: translateY(-50%); }
-        .pos-2 { top: -40px; right: 25%; }
-        .pos-3 { top: -40px; left: 25%; }
-        .pos-4 { left: -40px; top: 55%; transform: translateY(-50%); }
+        /* Layout scaling for Mobile */
+        #board { width: 100%; height: 25vh; background: #222; border-bottom: 2px solid #444; padding: 10px; display: flex; flex-direction: row; overflow-x: auto; box-sizing: border-box; }
+        @media (min-width: 768px) {
+            body { flex-direction: row; }
+            #board { width: 280px; height: 100vh; border-bottom: none; border-right: 2px solid #444; flex-direction: column; overflow-y: auto; }
+        }
 
-        .played-card, .card-visual { width: 45px; height: 65px; background: white; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 2px solid #000; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .section-title { font-size: 0.7rem; text-transform: uppercase; color: #888; margin-top: 10px; border-bottom: 1px solid #444; padding-bottom: 3px; }
+        #game-info { background: #333; padding: 8px; border-radius: 8px; margin-top: 5px; border-left: 4px solid var(--dealer-orange); flex-shrink: 0; }
+        .score-row { display: flex; justify-content: space-between; padding: 5px; background: #2a2a2a; margin-top: 3px; border-radius: 4px; font-size: 0.8rem; }
+        .score-points { color: #2ecc71; font-weight: bold; }
+        
+        #table-container { flex-grow: 1; background: var(--felt-green); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #felt { width: 90vw; height: 90vw; max-width: 500px; max-height: 500px; background: radial-gradient(#0a8a35, #054d1d); border: 10px solid #3d2b1f; border-radius: 50%; position: relative; }
+        
+        .player-spot { position: absolute; width: 70px; height: 70px; background: rgba(0,0,0,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: 0.3s; z-index: 5; font-size: 0.7rem; }
+        .active-turn { border-color: #2ecc71 !important; box-shadow: 0 0 15px #2ecc71; transform: scale(1.1); }
+        .dealer-badge { position: absolute; top: -8px; right: -8px; background: var(--dealer-orange); color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border: 2px solid white; font-weight: bold; }
+        
+        /* Positions for 5 players */
+        .pos-0 { bottom: -30px; left: 50%; transform: translateX(-50%); }
+        .pos-1 { right: -30px; top: 55%; transform: translateY(-50%); }
+        .pos-2 { top: -30px; right: 20%; }
+        .pos-3 { top: -30px; left: 20%; }
+        .pos-4 { left: -30px; top: 55%; transform: translateY(-50%); }
+
+        .played-card, .card-visual { width: 40px; height: 58px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 1.5px solid #000; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         .played-card { position: absolute; z-index: 10; transform: translate(-50%, -50%); animation: bounceIn 0.4s ease-out; }
         @keyframes bounceIn { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 
-        #history-modal, #prev-trick-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; }
+        /* Modals */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+        th, td { border: 1px solid #444; padding: 6px; text-align: center; font-size: 0.8rem; }
         
-        #hand-container { position: absolute; bottom: 10px; display: flex; gap: 5px; z-index: 20; }
-        .player-card { background: white; padding: 10px 12px; border-radius: 5px; font-weight: bold; color: black; cursor: pointer; box-shadow: 0 3px 0 #999; }
-        button { padding: 10px; margin: 5px 0; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; }
-        #start-btn { background: #e67e22; color: white; display: none; }
-        .aux-btn { background: #3498db; color: white; font-size: 0.8rem; }
+        #hand-container { position: absolute; bottom: 5px; display: flex; gap: 4px; z-index: 20; max-width: 95%; overflow-x: auto; padding: 5px; }
+        .player-card { background: white; padding: 8px 10px; border-radius: 4px; font-weight: bold; color: black; cursor: pointer; flex-shrink: 0; border: 1px solid #ccc; }
+        .card-selected { border: 3px solid #3498db; transform: translateY(-10px); background: #ebf5fb; }
+
+        button { padding: 10px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin: 5px 0; }
+        #start-btn { background: var(--dealer-orange); color: white; display: none; font-size: 1rem; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .aux-btn { background: #3498db; color: white; font-size: 0.7rem; }
+        
+        /* Summary Overlay */
+        #summary-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 20px; border: 3px solid var(--gold); border-radius: 15px; z-index: 50; width: 80%; max-width: 300px; text-align: center; }
     </style>
 </head>
 <body>
     <div id="board">
-        <h3 style="margin:0;">Liga D'Onofrio</h3>
-        <div id="game-info" style="display:none;">
-            <div id="hand-title" style="font-weight: bold;"></div>
-            <div id="dealer-name" style="color: #bdc3c7; font-size: 0.8rem;"></div>
+        <div style="flex: 1; min-width: 200px;">
+            <h3 style="margin:0; font-size: 1rem;">Liga D'Onofrio</h3>
+            <div id="game-info">
+                <div id="hand-title" style="font-weight: bold; font-size:0.9rem;"></div>
+                <div id="dealer-name" style="color: #bdc3c7; font-size: 0.7rem;"></div>
+            </div>
+            <button class="aux-btn" id="view-history-btn">Ver Detalles de la Partida</button>
+            <button class="aux-btn" id="view-prev-btn" style="display:none;">Baza Anterior</button>
         </div>
-        <div class="section-title">🏆 Top 5</div>
-        <div id="leaderboard"></div>
-        <button class="aux-btn" id="view-history-btn">Ver Detalles de la Partida</button>
-        <button class="aux-btn" id="view-prev-btn" style="display:none;">Ver Baza Anterior</button>
-        <div class="section-title">🪑 Lobby</div>
-        <div id="lobby-controls"><select id="player-select"></select><button id="join-btn" style="background: #27ae60; color: white;">Sentarse</button><button id="start-btn">¡REPARTIR!</button></div>
-        <ul id="seated-list" style="list-style: none; padding: 0; margin-top: 5px; font-size: 0.8rem;"></ul>
+        <div style="flex: 1; min-width: 150px; padding: 0 10px;">
+            <div class="section-title">🏆 Top 5</div>
+            <div id="leaderboard"></div>
+        </div>
+        <div id="lobby-controls" style="flex: 1; min-width: 150px;">
+            <select id="player-select" style="width:100%; padding:5px; margin-bottom:5px;"></select>
+            <button id="join-btn" style="background: #27ae60; color: white; padding:5px;">Unirse</button>
+            <button id="start-btn">¡REPARTIR!</button>
+        </div>
     </div>
 
     <div id="table-container">
-        <div id="banter-box" style="position: absolute; top: 15px; color:#f1c40f; font-weight:bold;">Bienvenidos</div>
-        <div id="felt"><div id="trump-display" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div></div>
-        <div id="bid-controls" style="display:none; position: absolute; bottom: 100px; right: 20px; background: #000; padding: 10px; border-radius: 8px; z-index:100;">
-            <select id="bid-select" style="width:60px;"></select><button id="bid-btn">Cantar</button>
+        <div id="summary-overlay">
+            <h2 id="sum-title" style="color:var(--gold); margin-top:0;">Mano Finalizada</h2>
+            <div id="sum-content" style="font-size:0.9rem; text-align:left; margin-bottom:15px;"></div>
+            <button onclick="this.parentElement.style.display='none'" style="background:var(--dealer-orange); color:white;">Entendido</button>
         </div>
+
+        <div id="banter-box" style="position: absolute; top: 15px; color:var(--gold); font-weight:bold; z-index:30;">Bienvenidos</div>
+        <div id="felt"><div id="trump-display" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div></div>
+        
+        <div id="bid-controls" style="display:none; position: absolute; bottom: 80px; right: 20px; background: #000; padding: 10px; border-radius: 8px; z-index:100;">
+            <div style="font-size:0.7rem; margin-bottom:5px;">Tu Canto:</div>
+            <select id="bid-select" style="width:60px; padding:5px;"></select>
+            <button id="bid-btn" style="background:#2ecc71; color:white;">Cantar</button>
+        </div>
+
+        <div id="play-confirm" style="display:none; position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); z-index:100;">
+            <button id="confirm-card-btn" style="background:#2ecc71; color:white; width:150px; border:2px solid white;">CONFIRMAR JUGADA</button>
+        </div>
+
         <div id="hand-container"></div>
     </div>
 
-    <div id="history-modal"><button onclick="this.parentElement.style.display='none'" style="float:right; background:red; color:white;">Cerrar</button><h2>📊 Historial</h2><div id="history-table-container"></div></div>
-    <div id="prev-trick-modal" style="text-align:center;"><button onclick="this.parentElement.style.display='none'" style="float:right; background:red; color:white;">Cerrar</button><h2>Ultima Baza</h2><div id="prev-trick-container" style="display:flex; justify-content:center; gap:15px; margin-top:50px;"></div></div>
+    <div id="history-modal" class="modal">
+        <button onclick="this.parentElement.style.display='none'" style="float:right; background:red; color:white; width:auto;">Cerrar</button>
+        <h2>📊 Detalles de la Partida</h2><div id="history-table-container"></div>
+    </div>
+    <div id="prev-trick-modal" class="modal" style="text-align:center;">
+        <button onclick="this.parentElement.style.display='none'" style="float:right; background:red; color:white; width:auto;">Cerrar</button>
+        <h2>Última Baza</h2><div id="prev-trick-container" style="display:flex; justify-content:center; gap:10px; margin-top:50px; flex-wrap:wrap;"></div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        const socket = io({ transports: ['websocket'], upgrade: false });
         const select = document.getElementById('player-select');
         const status = document.getElementById('banter-box');
         
-        // Persistent Hand State
         let localSeated = [], globalBids = {}, globalTricksWon = {}, currentHistory = [];
         let isMyTurn = false, currentHandIndex = 0, lastDealer = "", lastTrickData = null;
+        let selectedCard = null, currentMode = "idle";
 
         socket.on('init-lobby', (data) => {
             select.innerHTML = '<option value="">-- Quién sos? --</option>';
@@ -82,57 +126,46 @@
             updateUI(data.seatedPlayers, data.scores, data.history);
         });
 
-        socket.on('update-table', (data) => { 
-            currentHandIndex = data.currentHandIndex; 
-            updateUI(data.seatedPlayers, data.scores, data.history); 
-        });
+        socket.on('update-table', (data) => { currentHandIndex = data.currentHandIndex; updateUI(data.seatedPlayers, data.scores, data.history); });
 
         function updateUI(list, scores, history, nextPlayer = "") {
             localSeated = list; currentHistory = history;
-            document.getElementById('seated-list').innerHTML = list.map(p => `<li>✅ ${p.nickname}</li>`).join('');
-            document.getElementById('start-btn').style.display = (list.length === 5) ? 'block' : 'none';
-            document.getElementById('start-btn').innerText = `¡REPARTIR MANO ${currentHandIndex + 1}!`;
+            const myNick = select.value, me = list.find(p=>p.nickname===myNick);
+            
+            document.getElementById('start-btn').style.display = (list.length === 5 && !isMyTurn) ? 'block' : 'none';
+            document.getElementById('start-btn').innerText = `MANO ${currentHandIndex + 1}: REPARTIR`;
             
             if (scores && Object.keys(scores).length > 0) {
                 const lb = document.getElementById('leaderboard'); lb.innerHTML = "";
-                Object.entries(scores).sort((a,b)=>b[1].points-a[1].points).forEach(([n, v]) => lb.innerHTML += `<div class="score-row"><span>${n}</span><span><span class="score-points">${v.points}</span><span style="font-size:0.7rem;"> (${v.fallas}💀)</span></span></div>`);
+                Object.entries(scores).sort((a,b)=>b[1].points-a[1].points).forEach(([n, v]) => lb.innerHTML += `<div class="score-row"><span>${n}</span><span><span class="score-points">${v.points}</span><span style="font-size:0.6rem;"> (${v.fallas}💀)</span></span></div>`);
             }
 
             if (list.length === 5) {
-                const myNick = select.value, myData = list.find(p=>p.nickname===myNick);
-                const mySeat = myData ? myData.seatIndex : 0;
-                
-                const existingSpots = document.querySelectorAll('.player-spot');
-                existingSpots.forEach(s => s.remove());
-
+                const mySeat = me ? me.seatIndex : 0;
+                document.querySelectorAll('.player-spot').forEach(s => s.remove());
                 list.forEach(p => {
                     const relPos = (p.seatIndex - mySeat + 5) % 5;
                     const spot = document.createElement('div');
                     spot.className = `player-spot pos-${relPos} ${p.nickname === nextPlayer ? 'active-turn' : ''}`;
                     if(p.nickname === lastDealer) spot.innerHTML += `<div class="dealer-badge">D</div>`;
-                    
-                    // The Fix: Use the globalTricksWon variable that persists
                     const wonCount = globalTricksWon[p.nickname] || 0;
                     const bidCount = globalBids[p.nickname];
-                    const bidTxt = bidCount !== undefined ? `<div style="font-size:0.6rem; color:#f1c40f; font-weight:bold;">${wonCount} / ${bidCount}</div>` : '';
-                    
-                    spot.innerHTML += `<span style="font-weight:bold; font-size:0.75rem; color:white;">${p.nickname}</span>${bidTxt}`;
+                    const bidTxt = bidCount !== undefined ? `<div style="font-size:0.6rem; color:var(--gold); font-weight:bold;">${wonCount} / ${bidCount}</div>` : '';
+                    spot.innerHTML += `<span style="font-weight:bold;">${p.nickname}</span>${bidTxt}`;
                     document.getElementById('felt').appendChild(spot);
                 });
             }
         }
 
         socket.on('game-started', (data) => {
-            lastDealer = data.dealer; 
-            globalBids = {}; 
-            globalTricksWon = {}; // Reset for new hand
-            lastTrickData = null;
+            lastDealer = data.dealer; globalBids = {}; globalTricksWon = {}; lastTrickData = null; selectedCard = null;
             document.getElementById('game-info').style.display = 'block';
             document.getElementById('view-prev-btn').style.display = 'none';
+            document.getElementById('summary-overlay').style.display = 'none';
             document.getElementById('hand-title').innerText = `${data.handNumber} ${data.handLabel}`;
-            document.getElementById('dealer-name').innerText = `Reparte: ${data.dealer}`;
+            document.getElementById('dealer-name').innerText = `Repartidor: ${data.dealer}`;
             document.querySelectorAll('.played-card').forEach(c => c.remove());
-            document.getElementById('trump-display').innerHTML = `<div class="card-visual" style="color: ${(data.trump.s === '♥' || data.trump.s === '♦') ? 'red' : 'black'}">${data.trump.v}${data.trump.s}</div><div style="font-size:0.6rem; color:white; margin-top:3px;">TRIUNFO</div>`;
+            document.getElementById('trump-display').innerHTML = `<div class="card-visual" style="color: ${(data.trump.s === '♥' || data.trump.s === '♦') ? 'red' : 'black'}">${data.trump.v}${data.trump.s}</div><div style="font-size:0.5rem; color:white; margin-top:2px;">TRIUNFO</div>`;
             handleTurn(data.nextPlayer, "cantar", null, data.handNumber);
             
             const me = data.players.find(p => p.nickname === select.value);
@@ -142,15 +175,30 @@
                     const cardEl = document.createElement('div'); cardEl.className = 'player-card';
                     cardEl.style.color = (card.s === '♥' || card.s === '♦') ? 'red' : 'black';
                     cardEl.innerText = `${card.v}${card.s}`;
-                    cardEl.onclick = () => { if (isMyTurn) socket.emit('play-card', { nickname: select.value, card }); };
+                    cardEl.onclick = () => { if (currentMode === "jugar" && isMyTurn) selectLocalCard(card, cardEl); };
                     handDiv.appendChild(cardEl);
                 });
             }
-            updateUI(localSeated, data.scores, currentHistory, data.nextPlayer);
         });
 
+        function selectLocalCard(card, el) {
+            document.querySelectorAll('.player-card').forEach(c => c.classList.remove('card-selected'));
+            el.classList.add('card-selected');
+            selectedCard = card;
+            document.getElementById('play-confirm').style.display = 'block';
+        }
+
+        document.getElementById('confirm-card-btn').onclick = () => {
+            if (selectedCard && isMyTurn) {
+                socket.emit('play-card', { nickname: select.value, card: selectedCard });
+                document.getElementById('play-confirm').style.display = 'none';
+                selectedCard = null;
+            }
+        };
+
         function handleTurn(nextNickname, action, forbidden, handSize) {
-            status.innerText = `Próximo: ${nextNickname} (${action})`;
+            currentMode = action;
+            status.innerText = `${nextNickname === select.value ? '¡TU TURNO!' : 'Espera a ' + nextNickname} (${action})`;
             isMyTurn = (nextNickname === select.value);
             if (isMyTurn && action === "cantar") {
                 document.getElementById('bid-controls').style.display = 'block';
@@ -160,15 +208,8 @@
             updateUI(localSeated, {}, currentHistory, nextNickname);
         }
 
-        socket.on('bid-update', (data) => { 
-            globalBids = data.bids; 
-            handleTurn(data.nextPlayer, "cantar", data.forbiddenBid, data.handSize); 
-        });
-
-        socket.on('bids-complete', (data) => { 
-            globalBids = data.bids; 
-            handleTurn(data.nextPlayer, "jugar", null, null); 
-        });
+        socket.on('bid-update', (data) => { globalBids = data.bids; handleTurn(data.nextPlayer, "cantar", data.forbiddenBid, data.handSize); });
+        socket.on('bids-complete', (data) => { globalBids = data.bids; handleTurn(data.nextPlayer, "jugar", null, null); });
         
         socket.on('card-played', (data) => {
             const cardDiv = document.createElement('div'); cardDiv.className = 'played-card';
@@ -177,54 +218,65 @@
             const me = localSeated.find(p=>p.nickname===select.value);
             const mySeat = me ? me.seatIndex : 0;
             const relPos = (data.playerSeat - mySeat + 5) % 5;
-            const pos = [{t:'80%',l:'50%'},{t:'55%',l:'80%'},{t:'25%',l:'70%'},{t:'25%',l:'30%'},{t:'55%',l:'20%'}][relPos];
+            const pos = [{t:'75%',l:'50%'},{t:'55%',l:'75%'},{t:'30%',l:'65%'},{t:'30%',l:'35%'},{t:'55%',l:'25%'}][relPos];
             Object.assign(cardDiv.style, { top: pos.t, left: pos.l });
             document.getElementById('felt').appendChild(cardDiv);
-
             if (data.playerNickname === select.value) {
-                document.querySelectorAll('.player-card').forEach(c => {
-                    if (c.innerText === `${data.playedCard.v}${data.playedCard.s}`) c.remove();
-                });
+                document.querySelectorAll('.player-card').forEach(c => { if (c.innerText === `${data.playedCard.v}${data.playedCard.s}`) c.remove(); });
             }
             handleTurn(data.nextPlayer, "jugar", null, null);
         });
 
         socket.on('clear-felt', (data) => {
             lastTrickData = data.lastTrick;
-            globalTricksWon = data.tricksWon; // Update the persistent trick counter
+            globalTricksWon = data.tricksWon;
             document.getElementById('view-prev-btn').style.display = 'block';
             status.innerText = `¡${data.winner} ganó la baza!`;
             setTimeout(() => {
                 document.querySelectorAll('.played-card:not(#trump-display *)').forEach(c => c.remove());
                 updateUI(localSeated, {}, currentHistory, data.nextPlayer);
-                handleTurn(data.nextPlayer, "jugar", null, null);
             }, 1800);
         });
 
-        socket.on('error-msg', (msg) => alert(msg));
         socket.on('hand-finished', (data) => { 
             currentHandIndex = data.currentHandIndex; 
-            updateUI(localSeated, data.scores, data.history); 
-            document.getElementById('start-btn').style.display = 'block'; 
+            updateUI(localSeated, data.scores, data.history);
+            
+            const overlay = document.getElementById('summary-overlay');
+            const content = document.getElementById('sum-content');
+            let html = `<ul style="padding-left:15px;">`;
+            Object.entries(data.lastHandResult.results).forEach(([nick, res]) => {
+                html += `<li><b>${nick}:</b> ${res.won}/${res.bid} (${res.pts > 0 ? '+'+res.pts : res.pts} pts)</li>`;
+            });
+            content.innerHTML = html + `</ul>`;
+            overlay.style.display = 'block';
             document.getElementById('hand-container').innerHTML = '';
         });
-        
+
+        socket.on('error-msg', (msg) => { alert(msg); document.getElementById('play-confirm').style.display = 'none'; });
+        socket.on('tournament-complete', (data) => alert("🎉 ¡Torneo Finalizado! Ganador: " + Object.entries(data.scores).sort((a,b)=>b[1].points-a[1].points)[0][0]));
+
         document.getElementById('view-history-btn').onclick = () => {
             const container = document.getElementById('history-table-container');
-            let nicknames = localSeated.map(p => p.nickname);
-            let h = `<table><tr><th>Mano</th>` + nicknames.map(n => `<th>${n}</th>`).join('') + `</tr>`;
-            currentHistory.forEach(row => { h += `<tr><td>${row.cardCount}</td>` + nicknames.map(n => `<td><div class="pts-cell">${row.results[n].pts}${row.results[n].falla ? '💀' : ''}</div><div class="total-cell">${row.results[n].total}</div></td>`).join('') + `</tr>`; });
+            let nicks = localSeated.map(p => p.nickname);
+            let h = `<table><tr><th>Mano</th>` + nicks.map(n => `<th>${n}</th>`).join('') + `</tr>`;
+            currentHistory.forEach(row => { h += `<tr><td>${row.cardCount}</td>` + nicks.map(n => `<td><div style="font-size:0.6rem; color:#888;">${row.results[n].pts}${row.results[n].falla?'💀':''}</div><div style="font-weight:bold; color:#2ecc71;">${row.results[n].total}</div></td>`).join('') + `</tr>`; });
             container.innerHTML = h + `</table>`;
             document.getElementById('history-modal').style.display = 'block';
         };
 
         document.getElementById('view-prev-btn').onclick = () => {
             const container = document.getElementById('prev-trick-container'); container.innerHTML = "";
-            lastTrickData.forEach(t => container.innerHTML += `<div><div class="card-visual" style="color:${(t.card.s==='♥'||t.card.s==='♦')?'red':'black'}">${t.card.v}${t.card.s}</div><div style="font-size:0.7rem;">${t.nickname}</div></div>`);
+            lastTrickData.forEach(t => container.innerHTML += `<div><div class="card-visual" style="color:${(t.card.s==='♥'||t.card.s==='♦')?'red':'black'}">${t.card.v}${t.card.s}</div><div style="font-size:0.6rem;">${t.nickname}</div></div>`);
             document.getElementById('prev-trick-modal').style.display = 'block';
         };
 
-        document.getElementById('bid-btn').onclick = () => socket.emit('submit-bid', { nickname: select.value, bid: parseInt(document.getElementById('bid-select').value) });
+        document.getElementById('bid-btn').onclick = () => {
+            if (confirm(`¿Cantar ${document.getElementById('bid-select').value}?`)) {
+                socket.emit('submit-bid', { nickname: select.value, bid: parseInt(document.getElementById('bid-select').value) });
+                document.getElementById('bid-controls').style.display = 'none';
+            }
+        };
         document.getElementById('join-btn').onclick = () => { if (select.value) socket.emit('select-player', select.value); };
         document.getElementById('start-btn').onclick = () => socket.emit('start-game');
     </script>

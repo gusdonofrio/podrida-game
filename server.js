@@ -1,4 +1,4 @@
-const express = require('express');
+cconst express = require('express');
 const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
@@ -44,6 +44,7 @@ io.on('connection', (socket) => {
         isHandInProgress = true;
         bids = {}; tricksWon = {}; cardsOnTable = []; lastTrick = null;
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
+        
         const dealerIdx = currentHandIndex % 5;
         turnIndex = (dealerIdx + 1) % 5; 
         
@@ -86,15 +87,6 @@ io.on('connection', (socket) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
 
-        // Suit Enforce
-        if (cardsOnTable.length > 0) {
-            const leadingSuit = cardsOnTable[0].card.s;
-            if (data.card.s !== leadingSuit && p.hand.some(c => c.s === leadingSuit)) {
-                socket.emit('error-msg', "Carta no autorizada. No podes renunciar.");
-                return;
-            }
-        }
-
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
         turnIndex = (turnIndex + 1) % 5;
@@ -105,25 +97,47 @@ io.on('connection', (socket) => {
             const winner = determineWinner(cardsOnTable, trumpCard, currentHandIndex);
             tricksWon[winner.nickname]++;
             lastTrick = [...cardsOnTable];
+            
             const winnerObj = seatedPlayers.find(sp => sp.nickname === winner.nickname);
-            turnIndex = winnerObj.seatIndex;
+            turnIndex = winnerObj.seatIndex; // Pass turn to winner
 
             setTimeout(() => {
                 cardsOnTable = [];
                 io.emit('clear-felt', { winner: winner.nickname, nextPlayer: seatedPlayers[turnIndex].nickname, tricksWon, lastTrick });
-                if (Object.values(tricksWon).reduce((a, b) => a + b, 0) === HANDS[currentHandIndex]) calculateScores();
+                
+                // CHECK IF HAND ENDED
+                const totalPlayed = Object.values(tricksWon).reduce((a, b) => a + b, 0);
+                if (totalPlayed === HANDS[currentHandIndex]) {
+                    calculateScores();
+                }
             }, 2500);
         }
     });
 
+    socket.on('chat-msg', (data) => io.emit('chat-msg', data));
+    
     socket.on('disconnect', () => {
         seatedPlayers = seatedPlayers.filter(p => p.id !== socket.id);
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
     });
 });
 
+function determineWinner(cards, trump, handIdx) {
+    const isSinTriunfo = (handIdx >= 10 && handIdx <= 12);
+    const leadingSuit = cards[0].card.s;
+    let winner = cards[0];
+    for (let i = 1; i < cards.length; i++) {
+        const current = cards[i];
+        const curIsT = (!isSinTriunfo && current.card.s === trump.s);
+        const winIsT = (!isSinTriunfo && winner.card.s === trump.s);
+        if (curIsT && !winIsT) winner = current;
+        else if (curIsT && winIsT) { if (CARD_RANK[current.card.v] > CARD_RANK[winner.card.v]) winner = current; }
+        else if (!curIsT && !winIsT) { if (current.card.s === leadingSuit && CARD_RANK[current.card.v] > CARD_RANK[winner.card.v]) winner = current; }
+    }
+    return winner;
+}
+
 function calculateScores() {
-    isHandInProgress = false;
     let handRecord = { handNum: currentHandIndex + 1, cardCount: HANDS[currentHandIndex], results: {} };
     seatedPlayers.forEach(p => {
         const bid = bids[p.nickname], won = tricksWon[p.nickname];
@@ -134,8 +148,8 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
-    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
+    isHandInProgress = false; // Reset lock ONLY after all calculations are done
+    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log("Engine Ready"));
+http.listen(PORT, '0.0.0.0', () => console.log("Liga D'Onofrio Online Ready"));

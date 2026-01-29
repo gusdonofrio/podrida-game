@@ -7,7 +7,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const HANDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const CARD_RANK = { '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14 };
-const SUIT_ORDER = { '♠': 0, '♥': 1, '♣': 2, '♦': 3 }; // Alternating colors (Black, Red, Black, Red)
+const SUIT_ORDER = { '♠': 0, '♥': 1, '♣': 2, '♦': 3 };
 
 let seatedPlayers = [];
 let bids = {}; 
@@ -95,7 +95,6 @@ io.on('connection', (socket) => {
         const cardCount = HANDS[currentHandIndex];
         seatedPlayers.forEach(p => {
             let hand = deck.splice(0, cardCount);
-            // SORTING LOGIC: By suit order, then by rank ascending
             hand.sort((a, b) => {
                 if (SUIT_ORDER[a.s] !== SUIT_ORDER[b.s]) return SUIT_ORDER[a.s] - SUIT_ORDER[b.s];
                 return CARD_RANK[a.v] - CARD_RANK[b.v];
@@ -125,14 +124,19 @@ io.on('connection', (socket) => {
         if (!p || data.nickname !== p.nickname) return;
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
-        turnIndex = (turnIndex + 1) % 5;
+        
+        turnIndex = (turnIndex + 1) % 5; // Temporarily increment
         io.emit('card-played', { playedCard: data.card, playerNickname: p.nickname, playerSeat: p.seatIndex, nextPlayer: seatedPlayers[turnIndex].nickname, totalOnTable: cardsOnTable.length });
 
         if (cardsOnTable.length === 5) {
             const winner = determineWinner(cardsOnTable, trumpCard, currentHandIndex);
             tricksWon[winner.nickname]++;
             lastTrick = [...cardsOnTable];
-            turnIndex = seatedPlayers.find(sp => sp.nickname === winner.nickname).seatIndex;
+            
+            // Re-sync turnIndex to the winner
+            const winnerPlayer = seatedPlayers.find(sp => sp.nickname === winner.nickname);
+            turnIndex = winnerPlayer.seatIndex;
+
             setTimeout(() => {
                 cardsOnTable = [];
                 io.emit('clear-felt', { winner: winner.nickname, nextPlayer: seatedPlayers[turnIndex].nickname, tricksWon, lastTrick });
@@ -162,4 +166,4 @@ function calculateScores() {
     io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log(`Engine Live`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Liga D'Onofrio Active`));

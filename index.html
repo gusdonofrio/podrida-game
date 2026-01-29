@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podrida D'Onofrio League</title>
+    <style>
+        body { display: flex; background: #1a1a1a; color: white; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        #board { width: 280px; background: #222; border-right: 2px solid #444; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; }
+        .section-title { font-size: 0.8rem; text-transform: uppercase; color: #888; margin-top: 15px; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        #game-info { background: #333; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #e67e22; }
+        .score-row { display: flex; justify-content: space-between; padding: 8px; background: #2a2a2a; margin-top: 4px; border-radius: 4px; font-size: 0.9rem; }
+        .score-points { color: #2ecc71; font-weight: bold; }
+        #table-container { flex-grow: 1; background: #076324; position: relative; display: flex; align-items: center; justify-content: center; }
+        #felt { width: 85%; height: 65%; background: radial-gradient(#0a8a35, #054d1d); border: 12px solid #3d2b1f; border-radius: 50%; position: relative; }
+        .player-spot { position: absolute; width: 85px; height: 85px; background: rgba(0,0,0,0.85); border: 3px solid #f1c40f; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: 0.3s; z-index: 5; }
+        .active-turn { border-color: #2ecc71 !important; box-shadow: 0 0 20px #2ecc71; transform: scale(1.05); }
+        .dealer-badge { position: absolute; top: -10px; right: -10px; background: #e67e22; color: white; border-radius: 50%; width: 25px; height: 25px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; border: 2px solid white; font-weight: bold; }
+        
+        .pos-0 { bottom: -40px; left: 50%; transform: translateX(-50%); }
+        .pos-1 { right: -40px; top: 55%; transform: translateY(-50%); }
+        .pos-2 { top: -40px; right: 25%; }
+        .pos-3 { top: -40px; left: 25%; }
+        .pos-4 { left: -40px; top: 55%; transform: translateY(-50%); }
+
+        .played-card, .card-visual { width: 45px; height: 65px; background: white; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 2px solid #000; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .played-card { position: absolute; z-index: 10; transform: translate(-50%, -50%); animation: bounceIn 0.4s ease-out; }
+        @keyframes bounceIn { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
+        #history-modal, #prev-trick-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+        
+        #hand-container { position: absolute; bottom: 10px; display: flex; gap: 5px; z-index: 20; }
+        .player-card { background: white; padding: 10px 12px; border-radius: 5px; font-weight: bold; color: black; cursor: pointer; box-shadow: 0 3px 0 #999; }
+        button { padding: 10px; margin: 5px 0; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; }
+        #start-btn { background: #e67e22; color: white; display: none; }
+        .aux-btn { background: #3498db; color: white; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div id="board">
+        <h3 style="margin:0;">Liga D'Onofrio</h3>
+        <div id="game-info" style="display:none;">
+            <div id="hand-title" style="font-weight: bold;"></div>
+            <div id="dealer-name" style="color: #bdc3c7; font-size: 0.8rem;"></div>
+        </div>
+        <div class="section-title">🏆 Top 5</div>
+        <div id="leaderboard"></div>
+        <button class="aux-btn" id="view-history-btn">Ver Detalles de la Partida</button>
+        <button class="aux-btn" id="view-prev-btn" style="display:none;">Ver Baza Anterior</button>
+        <div class="section-title">🪑 Lobby</div>
+        <div id="lobby-controls"><select id="player-select"></select><button id="join-btn" style="background: #27ae60; color: white;">Sentarse</button><button id="start-btn">¡REPARTIR!</button></div>
+        <ul id="seated-list" style="list-style: none; padding: 0; margin-top: 5px; font-size: 0.8rem;"></ul>
+    </div>
+
+    <div id="table-container">
+        <div id="banter-box" style="position: absolute; top: 15px; color:#f1c40f; font-weight:bold;">Bienvenidos</div>
+        <div id="felt"><div id="trump-display" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div></div>
+        <div id="bid-controls" style="display:none; position: absolute; bottom: 100px; right: 20px; background: #000; padding: 10px; border-radius: 8px; z-index:100;">
+            <select id="bid-select" style="width:60px;"></select><button id="bid-btn">Cantar</button>
+        </div>
+        <div id="hand-container"></div>
+    </div>
+
+    <div id="history-modal"><button onclick="this.parentElement.style.display='none'" style="float:right; background:red; color:white;">Cerrar</button><h2>📊 Historial</h2><div id="history-table-container"></div></div>
+    <div id="prev-trick-modal" style="text-align:center;"><button onclick="this.parentElement.style.display='none'" style="float:right; background:red; color:white;">Cerrar</button><h2>Ultima Baza</h2><div id="prev-trick-container" style="display:flex; justify-content:center; gap:15px; margin-top:50px;"></div></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const select = document.getElementById('player-select');
+        const status = document.getElementById('banter-box');
+        
+        // Persistent Hand State
+        let localSeated = [], globalBids = {}, globalTricksWon = {}, currentHistory = [];
+        let isMyTurn = false, currentHandIndex = 0, lastDealer = "", lastTrickData = null;
+
+        socket.on('init-lobby', (data) => {
+            select.innerHTML = '<option value="">-- Quién sos? --</option>';
+            data.players.forEach(p => select.innerHTML += `<option value="${p.nickname}">${p.nickname}</option>`);
+            updateUI(data.seatedPlayers, data.scores, data.history);
+        });
+
+        socket.on('update-table', (data) => { 
+            currentHandIndex = data.currentHandIndex; 
+            updateUI(data.seatedPlayers, data.scores, data.history); 
+        });
+
+        function updateUI(list, scores, history, nextPlayer = "") {
+            localSeated = list; currentHistory = history;
+            document.getElementById('seated-list').innerHTML = list.map(p => `<li>✅ ${p.nickname}</li>`).join('');
+            document.getElementById('start-btn').style.display = (list.length === 5) ? 'block' : 'none';
+            document.getElementById('start-btn').innerText = `¡REPARTIR MANO ${currentHandIndex + 1}!`;
+            
+            if (scores && Object.keys(scores).length > 0) {
+                const lb = document.getElementById('leaderboard'); lb.innerHTML = "";
+                Object.entries(scores).sort((a,b)=>b[1].points-a[1].points).forEach(([n, v]) => lb.innerHTML += `<div class="score-row"><span>${n}</span><span><span class="score-points">${v.points}</span><span style="font-size:0.7rem;"> (${v.fallas}💀)</span></span></div>`);
+            }
+
+            if (list.length === 5) {
+                const myNick = select.value, myData = list.find(p=>p.nickname===myNick);
+                const mySeat = myData ? myData.seatIndex : 0;
+                
+                const existingSpots = document.querySelectorAll('.player-spot');
+                existingSpots.forEach(s => s.remove());
+
+                list.forEach(p => {
+                    const relPos = (p.seatIndex - mySeat + 5) % 5;
+                    const spot = document.createElement('div');
+                    spot.className = `player-spot pos-${relPos} ${p.nickname === nextPlayer ? 'active-turn' : ''}`;
+                    if(p.nickname === lastDealer) spot.innerHTML += `<div class="dealer-badge">D</div>`;
+                    
+                    // The Fix: Use the globalTricksWon variable that persists
+                    const wonCount = globalTricksWon[p.nickname] || 0;
+                    const bidCount = globalBids[p.nickname];
+                    const bidTxt = bidCount !== undefined ? `<div style="font-size:0.6rem; color:#f1c40f; font-weight:bold;">${wonCount} / ${bidCount}</div>` : '';
+                    
+                    spot.innerHTML += `<span style="font-weight:bold; font-size:0.75rem; color:white;">${p.nickname}</span>${bidTxt}`;
+                    document.getElementById('felt').appendChild(spot);
+                });
+            }
+        }
+
+        socket.on('game-started', (data) => {
+            lastDealer = data.dealer; 
+            globalBids = {}; 
+            globalTricksWon = {}; // Reset for new hand
+            lastTrickData = null;
+            document.getElementById('game-info').style.display = 'block';
+            document.getElementById('view-prev-btn').style.display = 'none';
+            document.getElementById('hand-title').innerText = `${data.handNumber} ${data.handLabel}`;
+            document.getElementById('dealer-name').innerText = `Reparte: ${data.dealer}`;
+            document.querySelectorAll('.played-card').forEach(c => c.remove());
+            document.getElementById('trump-display').innerHTML = `<div class="card-visual" style="color: ${(data.trump.s === '♥' || data.trump.s === '♦') ? 'red' : 'black'}">${data.trump.v}${data.trump.s}</div><div style="font-size:0.6rem; color:white; margin-top:3px;">TRIUNFO</div>`;
+            handleTurn(data.nextPlayer, "cantar", null, data.handNumber);
+            
+            const me = data.players.find(p => p.nickname === select.value);
+            const handDiv = document.getElementById('hand-container'); handDiv.innerHTML = '';
+            if(me && me.hand) {
+                me.hand.forEach(card => {
+                    const cardEl = document.createElement('div'); cardEl.className = 'player-card';
+                    cardEl.style.color = (card.s === '♥' || card.s === '♦') ? 'red' : 'black';
+                    cardEl.innerText = `${card.v}${card.s}`;
+                    cardEl.onclick = () => { if (isMyTurn) socket.emit('play-card', { nickname: select.value, card }); };
+                    handDiv.appendChild(cardEl);
+                });
+            }
+            updateUI(localSeated, data.scores, currentHistory, data.nextPlayer);
+        });
+
+        function handleTurn(nextNickname, action, forbidden, handSize) {
+            status.innerText = `Próximo: ${nextNickname} (${action})`;
+            isMyTurn = (nextNickname === select.value);
+            if (isMyTurn && action === "cantar") {
+                document.getElementById('bid-controls').style.display = 'block';
+                const ds = document.getElementById('bid-select'); ds.innerHTML = '';
+                for(let i=0; i <= handSize; i++) if(i !== forbidden) ds.innerHTML += `<option value="${i}">${i}</option>`;
+            } else document.getElementById('bid-controls').style.display = 'none';
+            updateUI(localSeated, {}, currentHistory, nextNickname);
+        }
+
+        socket.on('bid-update', (data) => { 
+            globalBids = data.bids; 
+            handleTurn(data.nextPlayer, "cantar", data.forbiddenBid, data.handSize); 
+        });
+
+        socket.on('bids-complete', (data) => { 
+            globalBids = data.bids; 
+            handleTurn(data.nextPlayer, "jugar", null, null); 
+        });
+        
+        socket.on('card-played', (data) => {
+            const cardDiv = document.createElement('div'); cardDiv.className = 'played-card';
+            cardDiv.innerText = `${data.playedCard.v}${data.playedCard.s}`;
+            cardDiv.style.color = (data.playedCard.s === '♥' || data.playedCard.s === '♦') ? 'red' : 'black';
+            const me = localSeated.find(p=>p.nickname===select.value);
+            const mySeat = me ? me.seatIndex : 0;
+            const relPos = (data.playerSeat - mySeat + 5) % 5;
+            const pos = [{t:'80%',l:'50%'},{t:'55%',l:'80%'},{t:'25%',l:'70%'},{t:'25%',l:'30%'},{t:'55%',l:'20%'}][relPos];
+            Object.assign(cardDiv.style, { top: pos.t, left: pos.l });
+            document.getElementById('felt').appendChild(cardDiv);
+
+            if (data.playerNickname === select.value) {
+                document.querySelectorAll('.player-card').forEach(c => {
+                    if (c.innerText === `${data.playedCard.v}${data.playedCard.s}`) c.remove();
+                });
+            }
+            handleTurn(data.nextPlayer, "jugar", null, null);
+        });
+
+        socket.on('clear-felt', (data) => {
+            lastTrickData = data.lastTrick;
+            globalTricksWon = data.tricksWon; // Update the persistent trick counter
+            document.getElementById('view-prev-btn').style.display = 'block';
+            status.innerText = `¡${data.winner} ganó la baza!`;
+            setTimeout(() => {
+                document.querySelectorAll('.played-card:not(#trump-display *)').forEach(c => c.remove());
+                updateUI(localSeated, {}, currentHistory, data.nextPlayer);
+                handleTurn(data.nextPlayer, "jugar", null, null);
+            }, 1800);
+        });
+
+        socket.on('error-msg', (msg) => alert(msg));
+        socket.on('hand-finished', (data) => { 
+            currentHandIndex = data.currentHandIndex; 
+            updateUI(localSeated, data.scores, data.history); 
+            document.getElementById('start-btn').style.display = 'block'; 
+            document.getElementById('hand-container').innerHTML = '';
+        });
+        
+        document.getElementById('view-history-btn').onclick = () => {
+            const container = document.getElementById('history-table-container');
+            let nicknames = localSeated.map(p => p.nickname);
+            let h = `<table><tr><th>Mano</th>` + nicknames.map(n => `<th>${n}</th>`).join('') + `</tr>`;
+            currentHistory.forEach(row => { h += `<tr><td>${row.cardCount}</td>` + nicknames.map(n => `<td><div class="pts-cell">${row.results[n].pts}${row.results[n].falla ? '💀' : ''}</div><div class="total-cell">${row.results[n].total}</div></td>`).join('') + `</tr>`; });
+            container.innerHTML = h + `</table>`;
+            document.getElementById('history-modal').style.display = 'block';
+        };
+
+        document.getElementById('view-prev-btn').onclick = () => {
+            const container = document.getElementById('prev-trick-container'); container.innerHTML = "";
+            lastTrickData.forEach(t => container.innerHTML += `<div><div class="card-visual" style="color:${(t.card.s==='♥'||t.card.s==='♦')?'red':'black'}">${t.card.v}${t.card.s}</div><div style="font-size:0.7rem;">${t.nickname}</div></div>`);
+            document.getElementById('prev-trick-modal').style.display = 'block';
+        };
+
+        document.getElementById('bid-btn').onclick = () => socket.emit('submit-bid', { nickname: select.value, bid: parseInt(document.getElementById('bid-select').value) });
+        document.getElementById('join-btn').onclick = () => { if (select.value) socket.emit('select-player', select.value); };
+        document.getElementById('start-btn').onclick = () => socket.emit('start-game');
+    </script>
+</body>
+</html>

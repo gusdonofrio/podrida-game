@@ -93,6 +93,8 @@ io.on('connection', (socket) => {
         deck.sort(() => Math.random() - 0.5);
 
         const cardCount = HANDS[currentHandIndex];
+        let label = (currentHandIndex >= 10 && currentHandIndex <= 12) ? "sin triunfo" : (currentHandIndex > 12 ? "bajando" : "subiendo");
+
         seatedPlayers.forEach(p => {
             let hand = deck.splice(0, cardCount);
             hand.sort((a, b) => {
@@ -102,7 +104,7 @@ io.on('connection', (socket) => {
             p.hand = hand;
         });
         trumpCard = deck.pop();
-        io.emit('game-started', { handNumber: cardCount, players: seatedPlayers, trump: trumpCard, dealer: seatedPlayers[dealerIdx].nickname, nextPlayer: seatedPlayers[turnIndex].nickname });
+        io.emit('game-started', { handNumber: cardCount, handLabel: label, players: seatedPlayers, trump: trumpCard, dealer: seatedPlayers[dealerIdx].nickname, nextPlayer: seatedPlayers[turnIndex].nickname });
     });
 
     socket.on('submit-bid', (data) => {
@@ -122,21 +124,26 @@ io.on('connection', (socket) => {
     socket.on('play-card', (data) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
+        
+        // Suit enforce
+        if (cardsOnTable.length > 0) {
+            const leadingSuit = cardsOnTable[0].card.s;
+            if (data.card.s !== leadingSuit && p.hand.some(c => c.s === leadingSuit)) {
+                socket.emit('error-msg', "Carta no autorizada. No podes renunciar.");
+                return;
+            }
+        }
+
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
-        
-        turnIndex = (turnIndex + 1) % 5; // Temporarily increment
+        turnIndex = (turnIndex + 1) % 5;
         io.emit('card-played', { playedCard: data.card, playerNickname: p.nickname, playerSeat: p.seatIndex, nextPlayer: seatedPlayers[turnIndex].nickname, totalOnTable: cardsOnTable.length });
 
         if (cardsOnTable.length === 5) {
             const winner = determineWinner(cardsOnTable, trumpCard, currentHandIndex);
             tricksWon[winner.nickname]++;
             lastTrick = [...cardsOnTable];
-            
-            // Re-sync turnIndex to the winner
-            const winnerPlayer = seatedPlayers.find(sp => sp.nickname === winner.nickname);
-            turnIndex = winnerPlayer.seatIndex;
-
+            turnIndex = seatedPlayers.find(sp => sp.nickname === winner.nickname).seatIndex;
             setTimeout(() => {
                 cardsOnTable = [];
                 io.emit('clear-felt', { winner: winner.nickname, nextPlayer: seatedPlayers[turnIndex].nickname, tricksWon, lastTrick });
@@ -163,7 +170,8 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
+    if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
+    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log(`Liga D'Onofrio Active`));
+http.listen(PORT, '0.0.0.0', () => console.log(`D'Onofrio Server Active`));

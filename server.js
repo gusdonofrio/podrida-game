@@ -25,7 +25,7 @@ app.use(express.static(__dirname));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 io.on('connection', (socket) => {
-    socket.emit('init-lobby', { players: [], seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
+    socket.emit('init-lobby', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
 
     socket.on('select-player', (nickname) => {
         if (seatedPlayers.length >= 5 || seatedPlayers.find(p => p.nickname === nickname)) return;
@@ -37,12 +37,13 @@ io.on('connection', (socket) => {
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
     });
 
+    socket.on('chat-msg', (data) => io.emit('chat-msg', data));
+
     socket.on('start-game', () => {
         if (seatedPlayers.length < 5 || isHandInProgress) return;
         isHandInProgress = true;
         bids = {}; tricksWon = {}; cardsOnTable = []; lastTrick = null;
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
-        
         const dealerIdx = currentHandIndex % 5;
         turnIndex = (dealerIdx + 1) % 5; 
         
@@ -104,8 +105,6 @@ io.on('connection', (socket) => {
             const winner = determineWinner(cardsOnTable, trumpCard, currentHandIndex);
             tricksWon[winner.nickname]++;
             lastTrick = [...cardsOnTable];
-            
-            // Critical Fix: Sync server turnIndex to trick winner
             const winnerObj = seatedPlayers.find(sp => sp.nickname === winner.nickname);
             turnIndex = winnerObj.seatIndex;
 
@@ -117,8 +116,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('chat-msg', (data) => io.emit('chat-msg', data));
-    
     socket.on('disconnect', () => {
         seatedPlayers = seatedPlayers.filter(p => p.id !== socket.id);
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
@@ -137,7 +134,8 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
+    if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
+    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log("Liga D'Onofrio Online Ready"));
+http.listen(PORT, '0.0.0.0', () => console.log("Engine Ready"));

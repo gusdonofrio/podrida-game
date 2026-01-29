@@ -111,7 +111,10 @@
             const myNick = select.value;
             document.getElementById('seated-players-list').innerHTML = list.map(p => `<li>✅ ${p.nickname}</li>`).join('');
             const currentDealerNick = list.length === 5 ? list[currentHandIndex % 5].nickname : "";
-            document.getElementById('start-btn').style.display = (list.length === 5 && !isGlobalHandInProgress && myNick === currentDealerNick) ? 'block' : 'none';
+            const startBtn = document.getElementById('start-btn');
+            startBtn.style.display = (list.length === 5 && !isGlobalHandInProgress && myNick === currentDealerNick) ? 'block' : 'none';
+            startBtn.innerText = `MANO ${currentHandIndex + 1}: REPARTIR`;
+            
             if (scores && Object.keys(scores).length > 0) {
                 const lb = document.getElementById('leaderboard'); lb.innerHTML = "";
                 Object.entries(scores).sort((a,b)=>b[1].points-a[1].points).slice(0,5).forEach(([n, v]) => {
@@ -212,6 +215,7 @@
             Object.entries(data.lastHandResult.results).forEach(([nick, res]) => { html += `<div><b>${nick}</b> (${res.won}/${res.bid}): <span style="color:${res.pts>0?'#2ecc71':'#e74c3c'}">${res.pts>0?'+':''}${res.pts}</span></div>`; });
             content.innerHTML = html; overlay.style.display = 'block';
             let timeLeft = 10; btn.innerText = `Entendido (${timeLeft}s)`;
+            if(summaryTimer) clearInterval(summaryTimer);
             summaryTimer = setInterval(() => { timeLeft--; btn.innerText = `Entendido (${timeLeft}s)`; if(timeLeft <= 0) { clearInterval(summaryTimer); overlay.style.display = 'none'; updateUI(localSeated, data.scores, data.history); } }, 1000);
         });
 
@@ -221,9 +225,7 @@
         socket.on('error-msg', (msg) => { alert(msg); document.getElementById('play-confirm').style.display = 'none'; });
         document.getElementById('confirm-card-btn').onclick = () => { if (selectedCard && isMyTurn) { socket.emit('play-card', { nickname: select.value, card: selectedCard }); document.getElementById('play-confirm').style.display = 'none'; selectedCard = null; } };
         document.getElementById('join-btn').onclick = () => { if (select.value) socket.emit('select-player', select.value); };
-        document.getElementById('start-btn').onclick = () => socket.emit('start-game');
-        
-        // Fix: Cantar button specifically
+        document.getElementById('start-btn').onclick = () => { socket.emit('start-game'); document.getElementById('start-btn').style.display = 'none'; };
         document.getElementById('bid-btn').onclick = () => {
             const val = document.getElementById('bid-select').value;
             if (confirm(`¿Cantar ${val}?`)) {

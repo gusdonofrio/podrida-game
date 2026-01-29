@@ -29,10 +29,9 @@ io.on('connection', (socket) => {
 
     socket.on('select-player', (nickname) => {
         if (seatedPlayers.length >= 5 || seatedPlayers.find(p => p.nickname === nickname)) return;
-        seatedPlayers.push({ nickname, id: socket.id });
+        seatedPlayers.push({ nickname, id: socket.id, seatIndex: seatedPlayers.length });
         if (seatedPlayers.length === 5) {
-            seatedPlayers = seatedPlayers.sort(() => Math.random() - 0.5);
-            seatedPlayers.forEach((p, idx) => { p.seatIndex = idx; scores[p.nickname] = { points: 0, fallas: 0 }; });
+            seatedPlayers.forEach(p => { scores[p.nickname] = scores[p.nickname] || { points: 0, fallas: 0 }; });
         }
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
     });
@@ -46,16 +45,13 @@ io.on('connection', (socket) => {
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
         const dealerIdx = currentHandIndex % 5;
         turnIndex = (dealerIdx + 1) % 5; 
-        
         const suits = ['♠', '♥', '♣', '♦'];
         const vals = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
         let deck = [];
         suits.forEach(s => vals.forEach(v => deck.push({s, v})));
         deck.sort(() => Math.random() - 0.5);
-
         const cardCount = HANDS[currentHandIndex];
         let label = (currentHandIndex >= 10 && currentHandIndex <= 12) ? "sin triunfo" : (currentHandIndex > 12 ? "bajando" : "subiendo");
-
         seatedPlayers.forEach(p => {
             let hand = deck.splice(0, cardCount);
             hand.sort((a, b) => {
@@ -75,7 +71,7 @@ io.on('connection', (socket) => {
         const bidsCount = Object.keys(bids).length;
         if (bidsCount === 5) {
             turnIndex = (currentHandIndex % 5 + 1) % 5;
-            io.emit('bids-complete', { bids, nextPlayer: seatedPlayers[turnIndex].nickname });
+            io.emit('bids-complete', { bids, nextPlayer: seatedPlayers[turnIndex].nickname, handSize: HANDS[currentHandIndex] });
         } else {
             let forbidden = (bidsCount === 4) ? (HANDS[currentHandIndex] - Object.values(bids).reduce((a, b) => a + b, 0)) : null;
             io.emit('bid-update', { bids, nextPlayer: seatedPlayers[turnIndex].nickname, forbiddenBid: forbidden, handSize: HANDS[currentHandIndex] });
@@ -86,10 +82,19 @@ io.on('connection', (socket) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
         
+        // 🚨 SUIT ENFORCEMENT (ANTI-RENUNCIO)
+        if (cardsOnTable.length > 0) {
+            const leadingSuit = cardsOnTable[0].card.s;
+            const hasLeadingSuit = p.hand.some(c => c.s === leadingSuit);
+            if (hasLeadingSuit && data.card.s !== leadingSuit) {
+                socket.emit('error-msg', `¡Renuncio! Tenés que tirar ${leadingSuit}.`);
+                return;
+            }
+        }
+
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
         turnIndex = (turnIndex + 1) % 5;
-        
         io.emit('card-played', { playedCard: data.card, playerNickname: p.nickname, playerSeat: p.seatIndex, nextPlayer: seatedPlayers[turnIndex].nickname, totalOnTable: cardsOnTable.length });
 
         if (cardsOnTable.length === 5) {
@@ -98,14 +103,11 @@ io.on('connection', (socket) => {
             lastTrick = [...cardsOnTable];
             const winnerObj = seatedPlayers.find(sp => sp.nickname === winner.nickname);
             turnIndex = winnerObj.seatIndex;
-
             setTimeout(() => {
                 cardsOnTable = [];
                 const totalPlayed = Object.values(tricksWon).reduce((a, b) => a + b, 0);
                 const handFinished = (totalPlayed === HANDS[currentHandIndex]);
-                
-                io.emit('clear-felt', { winner: winner.nickname, nextPlayer: winner.nickname, tricksWon, lastTrick, handFinished });
-                
+                io.emit('clear-felt', { winner: winner.nickname, nextPlayer: seatedPlayers[turnIndex].nickname, tricksWon, lastTrick, handFinished });
                 if (handFinished) calculateScores();
             }, 2500);
         }
@@ -144,7 +146,7 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord, fallas: seatedPlayers.map(p => ({nick: p.nickname, count: scores[p.nickname].fallas})) });
+    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
 http.listen(PORT, '0.0.0.0', () => console.log("Liga D'Onofrio Online Ready"));

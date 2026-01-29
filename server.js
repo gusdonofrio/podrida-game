@@ -21,52 +21,15 @@ let turnIndex = 0;
 let trumpCard = null;
 let isHandInProgress = false;
 
-const players = [
-    { name: "Rodolfo D'Onofrio", nickname: "Bucéfalo", gender: "M" },
-    { name: "Dila D'Onofrio", nickname: "Dila", gender: "F" },
-    { name: "Maximiliano D'Onofrio", nickname: "Maxi", gender: "M" },
-    { name: "Federico D'Onofrio", nickname: "Fido Dido", gender: "M" },
-    { name: "Fatima D'Onofrio", nickname: "Fatima", gender: "F" },
-    { name: "Martina D'Onofrio", nickname: "Marti", gender: "F" },
-    { name: "Agustin D'Onofrio", nickname: "Agus", gender: "M" },
-    { name: "Nicolas D'Onofrio", nickname: "Atila", gender: "M" },
-    { name: "Lucia D'Onofrio", nickname: "Luchi", gender: "F" },
-    { name: "Matilda D'Onofrio", nickname: "Tilly", gender: "F" },
-    { name: "Emilia D'Onofrio", nickname: "Emi Pig", gender: "F" },
-    { name: "Rodrigo", nickname: "Rodri", gender: "M" },
-    { name: "Paula Iocco", nickname: "Pau", gender: "F" },
-    { name: "Felipe D'Onofrio", nickname: "Felipe", gender: "M" },
-    { name: "Mateo D'Onofrio", nickname: "Mateo", gender: "M" },
-    { name: "Tahiel D'Onofrio", nickname: "Tahiel", gender: "M" },
-    { name: "Benjamin D'Onofrio", nickname: "Gaznápiro", gender: "M" },
-    { name: "Camila", nickname: "Cami", gender: "F" }
-];
-
-function determineWinner(cards, trump, handIdx) {
-    const isSinTriunfo = (handIdx >= 10 && handIdx <= 12);
-    const leadingSuit = cards[0].card.s;
-    let winner = cards[0];
-    for (let i = 1; i < cards.length; i++) {
-        const current = cards[i];
-        const curIsT = (!isSinTriunfo && current.card.s === trump.s);
-        const winIsT = (!isSinTriunfo && winner.card.s === trump.s);
-        if (curIsT && !winIsT) winner = current;
-        else if (curIsT && winIsT) { if (CARD_RANK[current.card.v] > CARD_RANK[winner.card.v]) winner = current; }
-        else if (!curIsT && !winIsT) { if (current.card.s === leadingSuit && CARD_RANK[current.card.v] > CARD_RANK[winner.card.v]) winner = current; }
-    }
-    return winner;
-}
-
 app.use(express.static(__dirname));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 io.on('connection', (socket) => {
-    socket.emit('init-lobby', { players, seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
+    socket.emit('init-lobby', { players: [], seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
 
     socket.on('select-player', (nickname) => {
         if (seatedPlayers.length >= 5 || seatedPlayers.find(p => p.nickname === nickname)) return;
-        const pData = players.find(p => p.nickname === nickname);
-        seatedPlayers.push({...pData, id: socket.id});
+        seatedPlayers.push({ nickname, id: socket.id });
         if (seatedPlayers.length === 5) {
             seatedPlayers = seatedPlayers.sort(() => Math.random() - 0.5);
             seatedPlayers.forEach((p, idx) => { p.seatIndex = idx; scores[p.nickname] = { points: 0, fallas: 0 }; });
@@ -74,15 +37,12 @@ io.on('connection', (socket) => {
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
     });
 
-    socket.on('chat-msg', (data) => {
-        io.emit('chat-msg', { nick: data.nick, msg: data.msg });
-    });
-
     socket.on('start-game', () => {
         if (seatedPlayers.length < 5 || isHandInProgress) return;
         isHandInProgress = true;
         bids = {}; tricksWon = {}; cardsOnTable = []; lastTrick = null;
         seatedPlayers.forEach(p => tricksWon[p.nickname] = 0);
+        
         const dealerIdx = currentHandIndex % 5;
         turnIndex = (dealerIdx + 1) % 5; 
         
@@ -124,8 +84,8 @@ io.on('connection', (socket) => {
     socket.on('play-card', (data) => {
         const p = seatedPlayers[turnIndex];
         if (!p || data.nickname !== p.nickname) return;
-        
-        // Suit enforce
+
+        // Suit Enforce
         if (cardsOnTable.length > 0) {
             const leadingSuit = cardsOnTable[0].card.s;
             if (data.card.s !== leadingSuit && p.hand.some(c => c.s === leadingSuit)) {
@@ -137,13 +97,18 @@ io.on('connection', (socket) => {
         p.hand = p.hand.filter(c => !(c.v === data.card.v && c.s === data.card.s));
         cardsOnTable.push({ nickname: p.nickname, card: data.card, seatIndex: p.seatIndex });
         turnIndex = (turnIndex + 1) % 5;
+        
         io.emit('card-played', { playedCard: data.card, playerNickname: p.nickname, playerSeat: p.seatIndex, nextPlayer: seatedPlayers[turnIndex].nickname, totalOnTable: cardsOnTable.length });
 
         if (cardsOnTable.length === 5) {
             const winner = determineWinner(cardsOnTable, trumpCard, currentHandIndex);
             tricksWon[winner.nickname]++;
             lastTrick = [...cardsOnTable];
-            turnIndex = seatedPlayers.find(sp => sp.nickname === winner.nickname).seatIndex;
+            
+            // Critical Fix: Sync server turnIndex to trick winner
+            const winnerObj = seatedPlayers.find(sp => sp.nickname === winner.nickname);
+            turnIndex = winnerObj.seatIndex;
+
             setTimeout(() => {
                 cardsOnTable = [];
                 io.emit('clear-felt', { winner: winner.nickname, nextPlayer: seatedPlayers[turnIndex].nickname, tricksWon, lastTrick });
@@ -152,6 +117,8 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('chat-msg', (data) => io.emit('chat-msg', data));
+    
     socket.on('disconnect', () => {
         seatedPlayers = seatedPlayers.filter(p => p.id !== socket.id);
         io.emit('update-table', { seatedPlayers, scores, history, currentHandIndex, isHandInProgress });
@@ -170,8 +137,7 @@ function calculateScores() {
     });
     history.push(handRecord);
     currentHandIndex++;
-    if (currentHandIndex === 21) io.emit('tournament-complete', { scores, history });
-    else io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
+    io.emit('hand-finished', { scores, history, currentHandIndex, lastHandResult: handRecord });
 }
 
-http.listen(PORT, '0.0.0.0', () => console.log(`D'Onofrio Server Active`));
+http.listen(PORT, '0.0.0.0', () => console.log("Liga D'Onofrio Online Ready"));

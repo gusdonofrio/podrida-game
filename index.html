@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Podrida D'Onofrio Recovery</title>
+    <title>Podrida D'Onofrio League</title>
     <style>
         :root { --felt-green: #076324; --gold: #f1c40f; --dealer-orange: #e67e22; --fail-red: #e74c3c; --success-green: #2ecc71; }
         body { display: flex; background: #1a1a1a; color: white; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; flex-direction: column; }
@@ -12,7 +12,7 @@
         #game-info { background: #333; padding: 8px; border-radius: 8px; border-left: 4px solid var(--dealer-orange); margin-bottom: 10px; }
         .score-row { display: flex; justify-content: space-between; padding: 4px; background: #2a2a2a; margin-top: 2px; border-radius: 4px; font-size: 0.75rem; }
         #table-container { flex-grow: 1; background: var(--felt-green); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        #felt { width: 85vw; height: 85vw; max-width: 420px; max-height: 420px; background: radial-gradient(#0a8a35, #054d1d); border: 10px solid #3d2b1f; border-radius: 50%; position: relative; }
+        #felt { width: 85vw; height: 85vw; max-width: 440px; max-height: 440px; background: radial-gradient(#0a8a35, #054d1d); border: 10px solid #3d2b1f; border-radius: 50%; position: relative; }
         .player-spot { position: absolute; width: 70px; height: 70px; background: rgba(0,0,0,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 0.65rem; transition: 0.3s; z-index: 5; }
         .active-turn { border-color: var(--success-green) !important; box-shadow: 0 0 15px var(--success-green); transform: scale(1.1); }
         .dealer-badge { position: absolute; top: -8px; right: -8px; background: var(--dealer-orange); border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border: 2px solid white; font-weight: bold; }
@@ -24,18 +24,21 @@
         .played-card, .card-visual { width: 42px; height: 60px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; border: 1.5px solid #000; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
         .played-card { position: absolute; z-index: 10; transform: translate(-50%, -50%); animation: bounceIn 0.4s ease-out; }
         @keyframes bounceIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        #chat-section { flex: 1; display: flex; flex-direction: column; background: #111; border: 1px solid #333; border-radius: 5px; height: 80px; }
-        #chat-logs { flex-grow: 1; overflow-y: auto; padding: 5px; font-size: 0.65rem; }
-        #chat-input { background: #222; border: none; color: white; padding: 6px; width: 100%; box-sizing: border-box; }
+        #chat-section { flex: 1; display: flex; flex-direction: column; background: #111; border: 1px solid #333; border-radius: 5px; min-width: 160px; height: 80px; }
+        @media (min-width: 768px) { #chat-section { height: 180px; } }
+        #chat-logs { flex-grow: 1; overflow-y: auto; padding: 5px; font-size: 0.65rem; color: #ccc; }
+        #chat-input { background: #222; border: none; color: white; padding: 6px; width: 100%; box-sizing: border-box; font-size: 0.7rem; }
         #hand-container { position: absolute; bottom: 5px; display: flex; gap: 4px; z-index: 20; max-width: 95%; overflow-x: auto; padding: 10px; }
         .player-card { background: white; padding: 10px 12px; border-radius: 5px; font-weight: bold; color: black; cursor: pointer; flex-shrink: 0; box-shadow: 0 3px 0 #bbb; }
         .card-selected { border: 3px solid #3498db; transform: translateY(-12px); background: #f0f8ff; }
         button { padding: 10px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; }
-        #start-btn { background: var(--dealer-orange); color: white; display: none; width: 100%; }
-        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; height: 80vh; background: #222; border: 2px solid var(--gold); border-radius: 12px; z-index: 1000; padding: 20px; box-sizing: border-box; }
+        #start-btn { background: var(--dealer-orange); color: white; display: none; width: 100%; margin: 5px 0; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; height: 80vh; background: #222; border: 2px solid var(--gold); border-radius: 12px; z-index: 1000; padding: 20px; box-sizing: border-box; color: white; }
         #summary-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 20px; border: 2px solid var(--gold); border-radius: 12px; z-index: 200; width: 85%; text-align: center; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; color: white; }
+        .seated-list { list-style: none; padding: 0; margin: 10px 0; font-size: 0.7rem; color: #aaa; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 10px; color: white; }
         th, td { border: 1px solid #444; padding: 6px; text-align: center; }
+        th { background: #333; color: var(--gold); }
     </style>
 </head>
 <body>
@@ -59,12 +62,12 @@
                 <button id="join-btn" style="background: var(--success-green); color: white; width:100%;">Unirse</button>
             </div>
             <button id="start-btn">¡REPARTIR!</button>
-            <ul id="seated-players-list" style="list-style:none; padding:0; font-size:0.7rem; color:#aaa;"></ul>
+            <ul id="seated-players-list" class="seated-list"></ul>
         </div>
         <div style="flex: 1; min-width: 140px;">
             <div id="leaderboard"></div>
-            <button onclick="openHistory()" style="font-size:0.6rem; width:100%; margin-top:5px; background:#3498db; color:white;">Historial</button>
-            <button id="view-prev-btn" onclick="openPrevTrick()" style="display:none; font-size:0.6rem; width:100%; margin-top:2px; background:#9b59b6; color:white;">Anterior</button>
+            <button onclick="openHistory()" style="font-size:0.6rem; width:100%; margin-top:5px; background:#3498db; color:white;">Detalles de la partida</button>
+            <button id="view-prev-btn" onclick="openPrevTrick()" style="display:none; font-size:0.6rem; width:100%; margin-top:2px; background:#9b59b6; color:white;">Baza Anterior</button>
         </div>
         <div id="chat-section"><div id="chat-logs"></div><input type="text" id="chat-input" placeholder="Chat..."></div>
     </div>
@@ -72,12 +75,13 @@
         <div id="summary-overlay">
             <h3 style="color:var(--gold); margin:0;">Mano Finalizada</h3>
             <div id="sum-content" style="font-size:0.8rem; margin:15px 0; text-align:left;"></div>
-            <button onclick="this.parentElement.style.display='none'" style="background:var(--dealer-orange); color:white; width:100%;">Cerrar (10s)</button>
+            <button id="close-summary-btn" style="background:var(--dealer-orange); color:white; width:100%;">Cerrar</button>
         </div>
-        <div id="banter-box" style="position: absolute; top: 10px; color:var(--gold); font-weight:bold; z-index:30; text-align:center; width:90%; font-size:0.8rem;"></div>
+        <div id="banter-box" style="position: absolute; top: 15px; color:var(--gold); font-weight:bold; z-index:30; text-align:center; width:80%;">Bienvenidos</div>
         <div id="felt"><div id="trump-display" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div></div>
         <div id="bid-controls" style="display:none; position: absolute; bottom: 100px; right: 20px; background: #000; padding: 10px; border-radius: 8px; z-index:100;">
-            <select id="bid-select"></select><button id="bid-btn" style="background:var(--success-green); color:white; margin-left:5px;">Cantar</button>
+            <select id="bid-select" style="padding:5px;"></select>
+            <button id="bid-btn" style="background:var(--success-green); color:white;">Cantar</button>
         </div>
         <div id="play-confirm" style="display:none; position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); z-index:100;">
             <button id="confirm-card-btn" style="background:var(--success-green); color:white; padding:15px; border:2px solid white;">CONFIRMAR</button>
@@ -86,12 +90,8 @@
     </div>
 
     <div id="modal-history" class="modal">
-        <div style="display:flex; justify-content:space-between;"><h3>Detalles</h3><button onclick="this.parentElement.parentElement.style.display='none'" style="background:red; color:white;">X</button></div>
-        <div id="history-wrapper" style="overflow-y:auto; height:80%;"></div>
-    </div>
-    <div id="modal-prev" class="modal">
-        <div style="display:flex; justify-content:space-between;"><h3>Última Baza</h3><button onclick="this.parentElement.parentElement.style.display='none'" style="background:red; color:white;">X</button></div>
-        <div id="prev-content" style="display:flex; justify-content:center; gap:10px; margin-top:40px; flex-wrap:wrap;"></div>
+        <div style="display:flex; justify-content:space-between; padding:10px;"><h3>Detalle de la Partida</h3><button onclick="this.parentElement.parentElement.style.display='none'" style="background:red; color:white;">X</button></div>
+        <div id="history-wrapper" style="overflow-y:auto; padding:10px;"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -99,41 +99,35 @@
         const socket = io({ transports: ['websocket'], upgrade: false });
         const select = document.getElementById('player-select');
         const status = document.getElementById('banter-box');
-        
         let localSeated = [], globalBids = {}, globalTricksWon = {}, currentHistory = [];
         let isMyTurn = false, currentHandIndex = 0, lastDealer = "", lastTrickData = null;
-        let selectedCard = null, currentMode = "idle", isGlobalHandInProgress = false, stickyBidMsg = "";
+        let selectedCard = null, currentMode = "idle", summaryTimer = null, stickyBidMsg = "";
 
-        // --- RECONNECTION AUTO-JOIN ---
+        // Reconnection Helper
         window.onload = () => {
             const savedNick = localStorage.getItem('podrida_nick');
-            if (savedNick) {
-                socket.emit('select-player', savedNick);
-                select.value = savedNick;
-            }
+            if (savedNick) { socket.emit('select-player', savedNick); select.value = savedNick; }
         };
 
         socket.on('init-lobby', (data) => {
             currentHandIndex = data.currentHandIndex;
-            isGlobalHandInProgress = data.isHandInProgress;
-            updateUI(data.seatedPlayers, data.scores, data.history);
+            updateUI(data.seatedPlayers, data.scores, data.history, "", data.isHandInProgress);
         });
 
         socket.on('update-table', (data) => { 
             currentHandIndex = data.currentHandIndex; 
-            isGlobalHandInProgress = data.isHandInProgress;
-            updateUI(data.seatedPlayers, data.scores, data.history); 
+            updateUI(data.seatedPlayers, data.scores, data.history, "", data.isHandInProgress); 
         });
 
-        function updateUI(list, scores, history, nextPlayer = "") {
+        function updateUI(list, scores, history, nextPlayer = "", handInProgress = false) {
             localSeated = list; currentHistory = history;
             const myNick = select.value;
             document.getElementById('seated-players-list').innerHTML = list.map(p => `<li>✅ ${p.nickname}</li>`).join('');
             
             const dealerIndex = currentHandIndex % 5;
             const currentDealerNick = list.length === 5 ? list[dealerIndex].nickname : "";
-            document.getElementById('start-btn').style.display = (list.length === 5 && !isGlobalHandInProgress && myNick === currentDealerNick) ? 'block' : 'none';
-            if (isGlobalHandInProgress) document.getElementById('lobby-entry').style.display = 'none';
+            document.getElementById('start-btn').style.display = (list.length === 5 && !handInProgress && myNick === currentDealerNick) ? 'block' : 'none';
+            if (handInProgress || list.length === 5) document.getElementById('lobby-entry').style.display = 'none';
 
             if (scores) {
                 const lb = document.getElementById('leaderboard'); lb.innerHTML = "";
@@ -157,7 +151,7 @@
         }
 
         socket.on('game-started', (data) => {
-            isGlobalHandInProgress = true; globalBids = {}; globalTricksWon = {};
+            globalBids = {}; globalTricksWon = {}; stickyBidMsg = "";
             document.getElementById('hand-title').innerText = `Mano ${currentHandIndex + 1}: ${data.handLabel}`;
             document.getElementById('dealer-name').innerText = `Reparte: ${data.dealer}`;
             document.querySelectorAll('.played-card').forEach(c => c.remove());
@@ -182,25 +176,31 @@
 
         function handleTurn(nextNickname, action, forbidden, handSize) {
             currentMode = action; isMyTurn = (nextNickname === select.value);
-            let turnTxt = `${nextNickname === select.value ? 'TU TURNO' : nextNickname} (${action})`;
+            let turnTxt = `${nextNickname === select.value ? '¡TU TURNO!' : nextNickname} (${action})`;
             status.innerText = stickyBidMsg ? `${turnTxt} | ${stickyBidMsg}` : turnTxt;
             if (isMyTurn && action === "cantar") {
                 document.getElementById('bid-controls').style.display = 'block';
                 const ds = document.getElementById('bid-select'); ds.innerHTML = '';
                 for(let i=0; i <= handSize; i++) if(i !== forbidden) ds.innerHTML += `<option value="${i}">${i}</option>`;
             } else document.getElementById('bid-controls').style.display = 'none';
-            updateUI(localSeated, {}, currentHistory, nextNickname);
+            updateUI(localSeated, {}, currentHistory, nextNickname, true);
         }
 
         socket.on('bid-update', (data) => { 
             globalBids = data.bids; 
             const total = Object.values(data.bids).reduce((a,b)=>a+b, 0);
-            const x = Math.abs(total - data.handSize);
-            stickyBidMsg = total > data.handSize ? `Faltan ${x}` : `Se tragan ${x}`;
+            const diff = Math.abs(total - data.handSize);
+            stickyBidMsg = total > data.handSize ? `Faltan ${diff}` : `Se tragan ${diff}`;
             handleTurn(data.nextPlayer, "cantar", data.forbiddenBid, data.handSize); 
         });
 
-        socket.on('bids-complete', (data) => { globalBids = data.bids; handleTurn(data.nextPlayer, "jugar", null, null); });
+        socket.on('bids-complete', (data) => { 
+            globalBids = data.bids; 
+            const total = Object.values(data.bids).reduce((a,b)=>a+b, 0);
+            const diff = Math.abs(total - data.handSize);
+            stickyBidMsg = total > data.handSize ? `Faltan ${diff}` : `Se tragan ${diff}`;
+            handleTurn(data.nextPlayer, "jugar", null, null); 
+        });
 
         socket.on('card-played', (data) => {
             const cardDiv = document.createElement('div'); cardDiv.className = 'played-card';
@@ -218,7 +218,7 @@
         socket.on('clear-felt', (data) => {
             lastTrickData = data.lastTrick; globalTricksWon = data.tricksWon;
             document.getElementById('view-prev-btn').style.display = 'block';
-            status.innerText = `¡${data.winner} ganó la baza!`;
+            status.innerText = `¡${data.winner} ganó la baza! | ${stickyBidMsg}`;
             setTimeout(() => {
                 document.querySelectorAll('.played-card:not(#trump-display *)').forEach(c => c.remove());
                 if (!data.handFinished) handleTurn(data.nextPlayer, "jugar", null, null);
@@ -226,14 +226,23 @@
         });
 
         socket.on('hand-finished', (data) => { 
-            currentHandIndex = data.currentHandIndex; isGlobalHandInProgress = false; stickyBidMsg = "";
+            currentHandIndex = data.currentHandIndex; stickyBidMsg = "";
             const overlay = document.getElementById('summary-overlay'), content = document.getElementById('sum-content');
             let html = "";
             Object.entries(data.lastHandResult.results).forEach(([n, r]) => {
-                html += `<div style="color:${r.falla?'var(--fail-red)':'var(--success-green)'}">${n} (${r.won}/${r.bid}): ${r.pts} pts</div>`;
+                html += `<div style="color:${r.falla?'var(--fail-red)':'var(--success-green)'}">${n}: ${r.pts > 0 ? '+'+r.pts : r.pts} pts (${r.won}/${r.bid})</div>`;
             });
             content.innerHTML = html; overlay.style.display = 'block';
-            updateUI(localSeated, data.scores, data.history);
+            updateUI(localSeated, data.scores, data.history, "", false);
+            
+            let time = 10;
+            const closeBtn = document.getElementById('close-summary-btn');
+            closeBtn.innerText = `Cerrar (${time}s)`;
+            if(summaryTimer) clearInterval(summaryTimer);
+            summaryTimer = setInterval(() => {
+                time--; closeBtn.innerText = `Cerrar (${time}s)`;
+                if(time <= 0) { clearInterval(summaryTimer); overlay.style.display = 'none'; }
+            }, 1000);
         });
 
         function openHistory() {
@@ -241,18 +250,21 @@
             const nicks = localSeated.map(p => p.nickname);
             let h = `<table><tr><th>#</th>` + nicks.map(n => `<th>${n}</th>`).join('') + `</tr>`;
             currentHistory.forEach(row => {
-                h += `<tr><td>${row.cardCount}</td>` + nicks.map(n => `<td style="color:${row.results[n].falla?'red':'white'}">${row.results[n].pts}</td>`).join('') + `</tr>`;
+                h += `<tr><td>${row.cardCount}</td>` + nicks.map(n => `<td style="color:${row.results[n].falla ? 'red' : 'white'}">${row.results[n].pts}</td>`).join('') + `</tr>`;
             });
-            wrapper.innerHTML = h + `</table>`;
+            h += `<tr style="font-weight:bold; background:#111;"><td>TOT</td>` + nicks.map(n => `<td>${(currentHistory[currentHistory.length-1] || {results:{}}).results[n]?.total || 0}</td>`).join('') + `</tr>`;
+            wrapper.innerHTML = h;
             document.getElementById('modal-history').style.display = 'block';
         }
 
-        socket.on('chat-msg', (d) => { document.getElementById('chat-logs').innerHTML += `<div><b>${d.nick}:</b> ${d.msg}</div>`; });
+        document.getElementById('close-summary-btn').onclick = () => { clearInterval(summaryTimer); document.getElementById('summary-overlay').style.display = 'none'; };
         document.getElementById('join-btn').onclick = () => { if(select.value) { localStorage.setItem('podrida_nick', select.value); socket.emit('select-player', select.value); } };
         document.getElementById('start-btn').onclick = () => socket.emit('start-game');
         document.getElementById('bid-btn').onclick = () => socket.emit('submit-bid', { nickname: select.value, bid: parseInt(document.getElementById('bid-select').value) });
         document.getElementById('confirm-card-btn').onclick = () => { if(selectedCard) { socket.emit('play-card', { nickname: select.value, card: selectedCard }); document.getElementById('play-confirm').style.display = 'none'; selectedCard = null; } };
         document.getElementById('chat-input').onkeypress = (e) => { if(e.key==='Enter') { socket.emit('chat-msg', {nick: select.value, msg: e.target.value}); e.target.value=''; } };
+        socket.on('chat-msg', (d) => { document.getElementById('chat-logs').innerHTML += `<div><b>${d.nick}:</b> ${d.msg}</div>`; });
+        socket.on('error-msg', (m) => alert(m));
     </script>
 </body>
 </html>

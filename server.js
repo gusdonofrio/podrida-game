@@ -25,22 +25,9 @@ let game = {
     lastTrick: null
 };
 
-// --- RECOVERY LOGIC ---
-function saveState() {
-    try { fs.writeFileSync(STATE_FILE, JSON.stringify(game)); } catch(e) { console.error("Save error", e); }
-}
-
-function loadState() {
-    if (fs.existsSync(STATE_FILE)) {
-        try {
-            const data = fs.readFileSync(STATE_FILE);
-            const saved = JSON.parse(data);
-            Object.assign(game, saved);
-            console.log(">>> Partida restaurada desde el archivo.");
-        } catch(e) { console.log("No se pudo cargar el estado previo."); }
-    }
-}
-loadState();
+// State Persistence
+function saveState() { try { fs.writeFileSync(STATE_FILE, JSON.stringify(game)); } catch(e) {} }
+if (fs.existsSync(STATE_FILE)) { try { game = JSON.parse(fs.readFileSync(STATE_FILE)); } catch(e) {} }
 
 app.use(express.static(__dirname));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -49,15 +36,13 @@ io.on('connection', (socket) => {
     socket.emit('init-lobby', game);
 
     socket.on('select-player', (nickname) => {
-        let existing = game.seatedPlayers.find(p => p.nickname === nickname);
-        if (existing) {
-            existing.id = socket.id; // Reconnect existing player
-        } else if (game.seatedPlayers.length < 5 && !game.isHandInProgress) {
+        let p = game.seatedPlayers.find(sp => sp.nickname === nickname);
+        if (p) { p.id = socket.id; } 
+        else if (game.seatedPlayers.length < 5 && !game.isHandInProgress) {
             game.seatedPlayers.push({ nickname, id: socket.id, seatIndex: game.seatedPlayers.length });
             game.scores[nickname] = game.scores[nickname] || { points: 0, fallas: 0 };
         }
         io.emit('update-table', game);
-        saveState();
     });
 
     socket.on('start-game', () => {
@@ -89,7 +74,7 @@ io.on('connection', (socket) => {
         const bidsCount = Object.keys(game.bids).length;
         if (bidsCount === 5) {
             game.turnIndex = (game.currentHandIndex % 5 + 1) % 5;
-            io.emit('bids-complete', { bids: game.bids, nextPlayer: game.seatedPlayers[game.turnIndex].nickname });
+            io.emit('bids-complete', { bids: game.bids, nextPlayer: game.seatedPlayers[game.turnIndex].nickname, handSize: HANDS[game.currentHandIndex] });
         } else {
             let forbidden = (bidsCount === 4) ? (HANDS[game.currentHandIndex] - Object.values(game.bids).reduce((a, b) => a + b, 0)) : null;
             io.emit('bid-update', { bids: game.bids, nextPlayer: game.seatedPlayers[game.turnIndex].nickname, forbiddenBid: forbidden, handSize: HANDS[game.currentHandIndex] });
@@ -98,16 +83,13 @@ io.on('connection', (socket) => {
 
     socket.on('play-card', (data) => {
         const p = game.seatedPlayers[game.turnIndex];
-        // --- DEBUG LOG ---
-        console.log(`[PLAY] ${data.nickname} intentó jugar ${data.card.v}${data.card.s}. Turno actual: ${p.nickname}`);
-
         if (!p || data.nickname !== p.nickname) return;
-        
+
         // Anti-Renuncio
         if (game.cardsOnTable.length > 0) {
             const leadingSuit = game.cardsOnTable[0].card.s;
             if (data.card.s !== leadingSuit && p.hand.some(c => c.s === leadingSuit)) {
-                socket.emit('error-msg', `¡Renuncio! Tenés que tirar ${leadingSuit}.`);
+                socket.emit('error-msg', `Renuncio! Debes tirar ${leadingSuit}`);
                 return;
             }
         }
@@ -129,12 +111,26 @@ io.on('connection', (socket) => {
                 const totalTricks = Object.values(game.tricksWon).reduce((a, b) => a + b, 0);
                 const handDone = totalTricks === HANDS[game.currentHandIndex];
                 io.emit('clear-felt', { winner: winner.nickname, nextPlayer: game.seatedPlayers[game.turnIndex].nickname, tricksWon: game.tricksWon, lastTrick: game.lastTrick, handFinished: handDone });
-                if (handDone) finishHand();
+                if (handDone) {
+                    let rec = { handNum: game.currentHandIndex + 1, cardCount: HANDS[game.currentHandIndex], results: {} };
+                    game.seatedPlayers.forEach(pl => {
+                        const b = game.bids[pl.nickname], w = game.tricksWon[pl.nickname];
+                        let pts = (b === w) ? (10 + (w * 5)) : w;
+                        if (b !== w) game.scores[pl.nickname].fallas++;
+                        game.scores[pl.nickname].points += pts;
+                        rec.results[pl.nickname] = { pts, total: game.scores[pl.nickname].points, falla: (b !== w), won: w, bid: b };
+                    });
+                    game.history.push(rec);
+                    game.currentHandIndex++;
+                    game.isHandInProgress = false;
+                    io.emit('hand-finished', { scores: game.scores, history: game.history, currentHandIndex: game.currentHandIndex, lastHandResult: rec });
+                    saveState();
+                }
             }, 2500);
         }
     });
 
-    socket.on('chat-msg', (data) => io.emit('chat-msg', data));
+    socket.on('chat-msg', (d) => io.emit('chat-msg', d));
 });
 
 function determineWinner(cards, trump, handIdx) {
@@ -152,20 +148,4 @@ function determineWinner(cards, trump, handIdx) {
     return win;
 }
 
-function finishHand() {
-    let rec = { handNum: game.currentHandIndex + 1, cardCount: HANDS[game.currentHandIndex], results: {} };
-    game.seatedPlayers.forEach(p => {
-        const bid = game.bids[p.nickname], won = game.tricksWon[p.nickname];
-        let pts = (bid === won) ? (10 + (won * 5)) : (1 * won);
-        if (bid !== won) game.scores[p.nickname].fallas++;
-        game.scores[p.nickname].points += pts;
-        rec.results[p.nickname] = { pts, total: game.scores[p.nickname].points, falla: (bid !== won), won, bid };
-    });
-    game.history.push(rec);
-    game.currentHandIndex++;
-    game.isHandInProgress = false;
-    io.emit('hand-finished', { scores: game.scores, history: game.history, currentHandIndex: game.currentHandIndex, lastHandResult: rec });
-    saveState();
-}
-
-http.listen(PORT, '0.0.0.0', () => console.log("Server Live with Recovery Enabled"));
+http.listen(PORT, '0.0.0.0', () => console.log("Liga D'Onofrio Online"));
